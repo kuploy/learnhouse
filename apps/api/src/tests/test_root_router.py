@@ -91,6 +91,7 @@ def _install_stub_modules(monkeypatch: pytest.MonkeyPatch) -> None:
         "roles",
         "search",
         "stream",
+        "live",
         "api_tokens",
         "webhooks",
     ]:
