@@ -1,0 +1,62 @@
+# Fork-only: build the LearnHouse fat image and publish it to Docker Hub under
+# the ceduth namespace, so kuploy can deploy the fork's live-classrooms code.
+#
+# Separate from upstream's build-community.yaml (which pushes to
+# ghcr.io/learnhouse/app) so upstream sync stays conflict-free.
+#
+# Requires two repo secrets (Settings → Secrets and variables → Actions):
+#   DOCKERHUB_USERNAME  e.g. ceduth
+#   DOCKERHUB_TOKEN     a Docker Hub access token with write scope
+name: Publish kuploy image (Docker Hub)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # allow a manual build before/without a merge
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: docker.io/ceduth/learnhouse-app
+
+jobs:
+  publish:
+    name: Build & push (amd64 + arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tags
+        id: meta
+        run: |
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          BRANCH="${{ github.ref_name }}"
+          echo "tags=${IMAGE}:${BRANCH},${IMAGE}:${BRANCH}-${SHA_SHORT}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            LEARNHOUSE_PUBLIC=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

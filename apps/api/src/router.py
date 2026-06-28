@@ -9,6 +9,7 @@ from src.routers import plans
 from src.routers import usergroups
 from src.routers import dev, trail, users, auth, orgs, roles, search
 from src.routers import monitoring
+from src.routers import live
 from src.routers import stream
 from src.routers import api_tokens
 from src.routers import webhooks
@@ -224,6 +225,14 @@ v1_router.include_router(
     trail.router,
     prefix="/trail",
     tags=["trail"],
+    dependencies=[Depends(require_authenticated_user)]
+)
+# Live classrooms: requires a real authenticated session (rejects anonymous and
+# API tokens) so every join token is minted for an actual user identity.
+v1_router.include_router(
+    live.router,
+    prefix="/live",
+    tags=["live"],
     dependencies=[Depends(require_authenticated_user)]
 )
 v1_router.include_router(

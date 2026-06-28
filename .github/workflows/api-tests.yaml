@@ -39,10 +39,16 @@ jobs:
       - name: Upload API coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: apps/api/coverage.xml
           flags: api
           name: api-coverage
-          fail_ci_if_error: true
+          # Don't fail the job if the upload can't authenticate. The real
+          # coverage gate is pytest's --cov-fail-under=25 above; Codecov here is
+          # just external reporting. This fork has no CODECOV_TOKEN, and Codecov
+          # rejects tokenless uploads, so a hard-fail would block every PR. Set
+          # the CODECOV_TOKEN secret to get reporting back; gating is unaffected.
+          fail_ci_if_error: false
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v7
