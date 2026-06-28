@@ -1,18 +1,27 @@
-# Fork-only: build the LearnHouse fat image and publish it to Docker Hub under
-# the ceduth namespace, so kuploy can deploy the fork's live-classrooms code.
+# Fork-only: build the LearnHouse fat image (the app, carrying the
+# live-classrooms code) and publish it to Docker Hub under the ceduth namespace,
+# so kuploy can deploy it via the learnhouse-live template.
+#
+# NOTE: this builds the LearnHouse *app* image — NOT the LiveKit server (that's
+# upstream livekit/livekit-server, deployed straight from the template).
 #
 # Separate from upstream's build-community.yaml (which pushes to
 # ghcr.io/learnhouse/app) so upstream sync stays conflict-free.
 #
 # Requires two repo secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME  e.g. ceduth
-#   DOCKERHUB_TOKEN     a Docker Hub access token with write scope
-name: Publish kuploy image (Docker Hub)
+#   DOCKERHUB_TOKEN     a Docker Hub token scoped read/write to ceduth/learnhouse-app
+name: Publish live-classrooms image
 
 on:
   push:
     branches:
       - main
+    # Only rebuild when the image contents can actually change — keeps doc/CI
+    # edits from triggering a full image build. Use workflow_dispatch to force one.
+    paths:
+      - 'apps/**'
+      - 'Dockerfile'
   workflow_dispatch: # allow a manual build before/without a merge
 
 permissions:
@@ -23,13 +32,10 @@ env:
 
 jobs:
   publish:
-    name: Build & push (amd64 + arm64)
+    name: Publish live-classrooms image (amd64 → Docker Hub)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -53,9 +59,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          # amd64-only for a fast, reliable publish (typical cluster arch).
-          # Multi-arch via native arm64 runners is a follow-up (see runbook todo)
-          # — emulated arm64 of this Next.js+FastAPI image is too slow here.
+          # amd64-only for a fast, reliable publish (target cluster is amd64).
+          # Multi-arch via native arm64 runners is a follow-up.
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
