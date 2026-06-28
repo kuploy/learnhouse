@@ -16,12 +16,15 @@ jobs:
   notify:
     name: Dispatch to Infrastructure Repo
     runs-on: ubuntu-latest
-    # Skip for pull requests opened from forks: GitHub does not expose
-    # secrets (INFRA_REPO_PAT) to fork PRs, so the dispatch can only ever
-    # fail there. Still runs for pushes and same-repo (internal) PRs.
+    # Only run where an infrastructure repo is actually configured. Without
+    # `vars.INFRA_REPO` the dispatch has no target and can only fail (the case
+    # in the kuploy fork, which does not use this upstream infra pipeline), so
+    # skip cleanly instead. Also skip for fork PRs: GitHub does not expose
+    # secrets (INFRA_REPO_PAT) there, so the dispatch could only ever fail.
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      vars.INFRA_REPO != '' &&
+      ( github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository )
     steps:
       - name: Send repository dispatch
         uses: peter-evans/repository-dispatch@v4
