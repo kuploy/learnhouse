@@ -53,7 +53,10 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          # amd64-only for a fast, reliable publish (typical cluster arch).
+          # Multi-arch via native arm64 runners is a follow-up (see runbook todo)
+          # — emulated arm64 of this Next.js+FastAPI image is too slow here.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
