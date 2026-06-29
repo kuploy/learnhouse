@@ -51,7 +51,9 @@ jobs:
         id: meta
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
-          BRANCH="${{ github.ref_name }}"
+          # Docker tags can't contain '/', so flatten slashes from feature branch
+          # names (e.g. fix/foo -> fix-foo) — workflow_dispatch builds run on them.
+          BRANCH=$(echo "${{ github.ref_name }}" | tr '/' '-')
           echo "tags=${IMAGE}:${BRANCH},${IMAGE}:${BRANCH}-${SHA_SHORT}" >> $GITHUB_OUTPUT
 
       - name: Build and push
