@@ -5,7 +5,7 @@
 # merge, and builds + pushes on push to main.
 #
 # Requires repo secrets DOCKERHUB_USERNAME + DOCKERHUB_TOKEN (same as the app image).
-name: Publish docs image
+name: Publish learnhouse-docs image (Docker Hub)
 
 on:
   push:
@@ -27,7 +27,7 @@ env:
 
 jobs:
   publish:
-    name: Build docs image (amd64) + push on main
+    name: Build amd64 image + push on main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
