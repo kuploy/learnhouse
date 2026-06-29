@@ -11,7 +11,7 @@
 # Requires two repo secrets (Settings → Secrets and variables → Actions):
 #   DOCKERHUB_USERNAME  e.g. ceduth
 #   DOCKERHUB_TOKEN     a Docker Hub token scoped read/write to ceduth/learnhouse-app
-name: Publish live-classrooms image
+name: Publish learnhouse-app image (Docker Hub)
 
 on:
   push:
@@ -32,7 +32,7 @@ env:
 
 jobs:
   publish:
-    name: Publish live-classrooms image (amd64 → Docker Hub)
+    name: Build amd64 image + push on main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
