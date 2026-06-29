@@ -9,9 +9,24 @@ from src.services.live.livekit import (
     LiveKitConfigError,
     LiveKitCredentials,
     create_join_token,
+    ensure_uuid_prefix,
     get_livekit_credentials,
     get_livekit_url,
 )
+
+
+class TestEnsureUuidPrefix:
+    def test_adds_missing_prefix(self):
+        # The frontend sends the bare uuid (URLs strip the prefix); RBAC needs it back.
+        assert ensure_uuid_prefix("ab12", "course_") == "course_ab12"
+        assert ensure_uuid_prefix("xy34", "activity_") == "activity_xy34"
+
+    def test_keeps_existing_prefix(self):
+        assert ensure_uuid_prefix("course_ab12", "course_") == "course_ab12"
+
+    def test_passes_through_empty(self):
+        assert ensure_uuid_prefix(None, "course_") is None
+        assert ensure_uuid_prefix("", "activity_") == ""
 
 
 class TestGetLiveKitCredentials:

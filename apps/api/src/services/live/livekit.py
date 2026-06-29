@@ -37,6 +37,18 @@ import jwt
 DEFAULT_TOKEN_TTL_SECONDS = 6 * 60 * 60
 
 
+def ensure_uuid_prefix(value: Optional[str], prefix: str) -> Optional[str]:
+    """Re-add a uuid prefix the frontend strips for URLs.
+
+    Course/activity URLs carry the bare uuid (``course_uuid.replace("course_", "")``),
+    so the client sends e.g. ``ab12`` while RBAC and the rest of the API key on the
+    full ``course_ab12``. Normalize before the access check so it resolves.
+    """
+    if not value:
+        return value
+    return value if value.startswith(prefix) else f"{prefix}{value}"
+
+
 class LiveKitConfigError(RuntimeError):
     """Raised when LiveKit credentials/URL are missing or malformed.
 

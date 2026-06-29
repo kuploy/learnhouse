@@ -18,6 +18,7 @@ from src.security.rbac import check_resource_access, AccessAction
 from src.services.live.livekit import (
     LiveKitConfigError,
     create_join_token,
+    ensure_uuid_prefix,
     get_livekit_credentials,
     get_livekit_url,
 )
@@ -47,6 +48,8 @@ def _display_name(user: PublicUser) -> str:
     return full or user.username
 
 
+
+
 @router.post(
     "/token",
     response_model=LiveTokenResponse,
@@ -71,11 +74,17 @@ async def issue_join_token(
     db_session: AsyncSession = Depends(get_db_session),
     current_user: PublicUser = Depends(get_current_user),
 ) -> LiveTokenResponse:
+    # Normalize the uuids: the frontend sends them stripped of their
+    # ``course_``/``activity_`` prefix (that's the URL form), but RBAC keys on
+    # the full uuid.
+    course_uuid = ensure_uuid_prefix(body.course_uuid, "course_")
+    activity_uuid = ensure_uuid_prefix(body.activity_uuid, "activity_")
+
     # Authorize: the caller must be able to READ the course. Anonymous callers
     # and API tokens are rejected at the router level (see registration in
     # router.py) so we always have a real user identity to join as.
     await check_resource_access(
-        request, db_session, current_user, body.course_uuid, AccessAction.READ
+        request, db_session, current_user, course_uuid, AccessAction.READ
     )
 
     # Course write access => instructor. We surface this as participant metadata
@@ -85,7 +94,7 @@ async def issue_join_token(
         request,
         db_session,
         current_user,
-        body.course_uuid,
+        course_uuid,
         AccessAction.UPDATE,
         raise_on_deny=False,
     )
@@ -100,7 +109,7 @@ async def issue_join_token(
             detail=f"Live classrooms are not configured: {exc}",
         )
 
-    room = body.activity_uuid or body.course_uuid
+    room = activity_uuid or course_uuid
     identity = current_user.user_uuid
     token = create_join_token(
         credentials,
