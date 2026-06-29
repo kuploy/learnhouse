@@ -33,7 +33,7 @@ import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import UserAvatar from '../../Objects/UserAvatar'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
-import { getUriWithOrg, getDeploymentMode } from '@services/config/config'
+import { getUriWithOrg, getDeploymentMode, getDocsUrl } from '@services/config/config'
 import { useTranslation } from 'react-i18next'
 import { changeLanguage } from '@/lib/i18n'
 import { AVAILABLE_LANGUAGES } from '@/lib/languages'
@@ -256,7 +256,7 @@ function DashMobileMenu() {
                   </div>
                 )}
 
-                <a href="https://docs.learnhouse.app" target="_blank" rel="noopener noreferrer"
+                <a href={getDocsUrl()} target="_blank" rel="noopener noreferrer"
                   className="flex items-center w-full rounded-lg px-2.5 py-2 gap-2.5 text-white/40 hover:text-white/80 hover:bg-white/[0.05] transition-all"
                 >
                   <Book size={15} weight="fill" />
