@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 
 # Live Classrooms
 
@@ -24,6 +24,89 @@ button, your instance doesn't have it enabled — ask your administrator.
 disabled.
 
 ![Get your camera, mic, lighting, and network right before going live](/img/live-classrooms/checklist.png)
+
+## Build your first live lesson — a walk-through
+
+A complete run from an empty dashboard to a live class with a slide on screen.
+In LearnHouse a "lesson" is an **Activity** inside a course chapter. This takes
+about five minutes.
+
+<Callout type="info">
+**Uploading images?** Artifact uploads (the course thumbnail, images in the
+editor, videos) need object storage configured on your instance. If an upload
+silently fails, that's almost always the cause — see
+[Uploading artifacts](#uploading-artifacts) and ask your administrator.
+</Callout>
+
+<Steps>
+
+### Create the course
+
+From the dashboard, go to **Courses → Create course**. Give it a name — e.g.
+**“Intro to Live Teaching”** — and a one-line description. Add a **Course
+Thumbnail** (any landscape image, ~16:9) so the course card looks finished.
+
+### Add a chapter
+
+Open the course and click **New Chapter**. Name it **“Session 1”**. Chapters
+group your lessons; a live class lives in one of them.
+
+### Add the lesson (activity)
+
+Inside the chapter, click **Add Activity → New activity**, pick the **page**
+(editor) type, and name it **“Welcome & warm-up”**. The page editor is where you
+write the lesson and drop in the artifacts your class will see beside the video.
+
+### Add content and a slide
+
+In the editor, add a heading and a short intro paragraph, then use the
+**image** button in the toolbar to **upload a slide** (drag a PNG/JPG in, or
+pick a file). A simple title slide works well as your shared focal point.
+
+> 💡 No slide handy? [Download this sample slide](/img/live-classrooms/sample-slide.png)
+> and upload it.
+
+Example lesson body:
+
+> **Welcome to the live session.** We'll cover today's topic together — your
+> camera and mic join automatically; use the Board on the right for notes and
+> shared work. Take a minute to check your camera and audio before we start.
+
+### Publish the lesson
+
+Click **Publish**. (The **Go live** button is available to you as the
+teacher whether or not the lesson is published — but students need it published
+to see the lesson.)
+
+### (Optional) Attach a Board
+
+Create a [Board](/platform/boards) (**Boards → New**) for shared notes and
+diagrams, and note its id from the URL (`/board/<boardId>`). The live room can
+render it beside the video.
+
+### Go live
+
+From the lesson, click **🎥 Go live**, allow camera + microphone, and you're in
+the room with your slide and Board beside the video grid. Share the lesson link
+and your students join the same room.
+
+</Steps>
+
+## Uploading artifacts
+
+You can attach a few kinds of artifact to a lesson:
+
+- **Course thumbnail** — the card image, set when you create/edit the course.
+- **Images in the editor** — slides, diagrams, screenshots, via the editor's
+  image button. These render in the lesson beside the live video.
+- **Video activities** — upload a recorded video as its own activity type.
+
+<Callout type="warning">
+Uploads go to your instance's configured storage. If an upload fails or the
+image doesn't appear, object storage isn't set up — the administrator needs to
+point the instance at an S3/MinIO bucket (or enable filesystem storage with a
+persistent volume). It is not a problem with your file.
+</Callout>
 
 ## A 60-second pre-flight checklist
 
