@@ -48,7 +48,7 @@ import React, { useEffect, useState } from 'react'
 import UserAvatar from '../../Objects/UserAvatar'
 import AdminAuthorization from '@components/Security/AdminAuthorization'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
-import { getUriWithOrg, getAPIUrl } from '@services/config/config'
+import { getUriWithOrg, getAPIUrl, getDocsUrl } from '@services/config/config'
 import { useTranslation } from 'react-i18next'
 import { changeLanguage } from '@/lib/i18n'
 import {
@@ -852,7 +852,7 @@ function DashLeftMenu() {
                 <HoverMenuSeparator />
                 <HoverMenuItem asChild>
                   <a
-                    href="https://docs.learnhouse.app"
+                    href={getDocsUrl()}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"

@@ -117,6 +117,22 @@ const getLEARNHOUSE_PLATFORM_URL = (): string | null => {
   return null
 }
 
+/**
+ * Documentation site URL for the in-product "Documentation" links.
+ *
+ * Configurable per-deployment via runtime config so a self-hosted /
+ * kuploy-deployed instance can point at its own docs host (e.g. a
+ * `learnhouse-docs` stack component, including a kuploy-cloud custom domain)
+ * instead of the upstream default. Set `NEXT_PUBLIC_LEARNHOUSE_DOCS_URL`.
+ */
+export const getDocsUrl = (): string => {
+  const pubVal = getConfig('NEXT_PUBLIC_LEARNHOUSE_DOCS_URL')
+  if (pubVal) return pubVal.replace(/\/+$/, '')
+  const val = getConfig('LEARNHOUSE_DOCS_URL')
+  if (val) return val.replace(/\/+$/, '')
+  return 'https://docs.learnhouse.app'
+}
+
 // Export getter functions for dynamic runtime configuration
 export const getLEARNHOUSE_HTTP_PROTOCOL_VAL = getLEARNHOUSE_HTTP_PROTOCOL
 export const getLEARNHOUSE_BACKEND_URL_VAL = getLEARNHOUSE_BACKEND_URL
