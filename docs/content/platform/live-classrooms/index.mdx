@@ -167,16 +167,17 @@ This is what turns a plain video call into a teaching space: a shared
 [Board](/platform/boards) rendered beside the video grid. The **Go live** button
 opens a video-only room, so you attach the Board by hand — once:
 
-1. Create the Board: go to **Boards → New**, open it, and let it load.
-   (See [Boards](/platform/boards) for what a Board can do — drawing, notes,
-   shared diagrams.)
-2. Copy its id from the browser address bar. The Board URL looks like
-   `…/board/board_AbC123` — the id is the `board_AbC123` part (the bare
-   `AbC123` works too).
+1. **Create the Board and add your content** following
+   [Boards → Create a board and add content](/platform/boards#create-a-board-and-add-content)
+   — in short: **Dashboard → Boards → New board**, then open the canvas and drop
+   in notes, drawings, cards, or embeds.
+2. With the Board open, copy its id from the browser address bar. The URL is
+   `…/board/<id>` — copy the `<id>` part (the trailing segment, no `board_`
+   prefix).
 3. Build the live URL by adding `&board=` to the room link:
 
    ```text
-   /course/<courseId>/live?activity=<activityId>&board=board_AbC123
+   /course/<courseId>/live?activity=<activityId>&board=<id>
    ```
 
    `<courseId>` and `<activityId>` are the same ids the **Go live** button uses
