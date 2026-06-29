@@ -47,7 +47,10 @@ jobs:
         id: meta
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
-          BRANCH="${{ github.ref_name }}"
+          # Sanitize the ref: on PRs github.ref_name is "<n>/merge" and the "/"
+          # is not a valid Docker tag char. PR builds aren't pushed; the tag just
+          # has to be valid.
+          BRANCH=$(echo "${{ github.ref_name }}" | tr '/' '-')
           echo "tags=${IMAGE}:${BRANCH},${IMAGE}:${BRANCH}-${SHA_SHORT}" >> $GITHUB_OUTPUT
 
       - name: Build and (on main) push
