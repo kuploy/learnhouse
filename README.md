@@ -27,6 +27,7 @@
 🧊 <b>Playgrounds</b> — AI-generated interactive elements, simulations & diagrams<br>
 💻 <b>Code</b> — Real code execution with auto-grading in 30+ languages<br>
 📋 <b>Boards</b> — Real-time collaborative whiteboards<br>
+🎥 <b><a href="docs/runbooks/live-classrooms/README.md">Live Classrooms</a></b> — Live video classes beside collaborative Boards (LiveKit)<br>
 🧠 <b>AI</b> — Context-aware AI for learning & teaching<br>
 🎓 <b>Certificates</b> — Auto-generate certificates on course completion<br>
 👥 <b>User Groups</b> — Organize learners and control access<br>
