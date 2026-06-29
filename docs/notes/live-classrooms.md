@@ -4,6 +4,11 @@ Live classrooms add real-time video/audio to a lesson, rendered beside a
 LearnHouse Board. Media is carried by a LiveKit SFU; LearnHouse only signs the
 room **JOIN tokens** — it does not touch the media path.
 
+> This note is the **architecture + security** reference. To actually run or
+> deploy the feature, see the runbook:
+> [`docs/runbooks/live-classrooms/`](../runbooks/live-classrooms/README.md)
+> (local PoC + the kuploy template).
+
 ## How it works
 
 1. The browser opens `/orgs/<org>/course/<courseuuid>/live` (optionally

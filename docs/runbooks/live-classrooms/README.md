@@ -46,3 +46,27 @@ the PoC you set them by hand.
 LearnHouse holds **`LIVEKIT_KEYS` only**; the api-secret never reaches the
 browser, and no STUNner/TURN credential is ever involved on the client. Full
 model in **[../../notes/live-classrooms.md](../../notes/live-classrooms.md)**.
+
+## Location & map
+
+This runbook lives at `docs/runbooks/live-classrooms/`:
+
+```
+docs/
+├─ notes/
+│  └─ live-classrooms.md          architecture + security model
+└─ runbooks/
+   └─ live-classrooms/
+      ├─ README.md                you are here — entry point
+      ├─ dev-poc.md               local PoC: from-source + Docker
+      └─ kuploy-template.md       deploy via the kuploy template (recommended)
+```
+
+How the docs link together:
+
+```
+README.md
+   ├─ 🚀 ship it      ──►  kuploy-template.md  ──►  kuploy.app + templates/learnhouse-live
+   ├─ 🧪 hack on it   ──►  dev-poc.md          ──►  throwaway `livekit --dev`
+   └─ security/arch   ──►  ../../notes/live-classrooms.md
+```
