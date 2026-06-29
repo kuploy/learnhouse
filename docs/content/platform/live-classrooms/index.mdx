@@ -12,13 +12,45 @@ kuploy **“LearnHouse + Live Classrooms”** stack). If a lesson has no **Go li
 button, your instance doesn't have it enabled — ask your administrator.
 </Callout>
 
+## What you'll see in the room
+
+When you click **Go live** you land in the room **on your own** — a single video
+tile with your camera. That's expected: a room fills up as the other people who
+open the same lesson join you. So the first time, it can look like "is that all
+there is?" — it isn't; you're just the only one there yet.
+
+What shows up depends on how you opened the room:
+
+- **Video only** — by default the room is just the video grid. This is what the
+  **Go live** button gives you.
+- **Video beside a Board** — to get the collaborative
+  [Board](/platform/boards) next to the video, the room URL needs a
+  `board` attached. The **Go live** button doesn't add one, so you attach it
+  yourself — see [Attach a Board](#attach-a-board-video-beside-shared-work)
+  below.
+- **Audio-only** — join with your camera off. It's the **same room**; video just
+  stays disabled (handy for low bandwidth or a quick voice check).
+
+So if you went live and saw only your own camera with no Board, nothing is
+broken — you were alone in a video-only room. Attach a Board and invite students
+and the room fills out into the side-by-side teaching space below.
+
 ## Start a live class
 
-1. Open (or create) a **lesson** in any course.
-2. In the lesson's action row, click **🎥 Go live**.
+1. Open a **lesson** (the lesson/Preview view, **not** the course editor's `…`
+   menu — that only has Rename/Unpublish/Delete).
+2. In the lesson's **action row** — bottom-right, next to **Mark as complete** —
+   click **🎥 Go live**.
 3. **Allow camera and microphone** when your browser asks.
-4. You join the room as yourself, with the video grid beside the Board. Share
-   the lesson link and your students join the same room.
+4. You join the room as yourself. Share the lesson link and your students join
+   the same room — see [How students join](#how-students-join).
+
+![The Go live button sits in the lesson's action row, bottom-right beside Mark as complete](/img/live-classrooms/go-live-button.png)
+
+The **Go live** button is the only place to start a live class — there's no
+separate "live" tab or dashboard widget. The lesson is the entry point; the room
+itself opens at the `…/live?activity=…` URL the button builds (the same URL you
+extend with `&board=` to bring in a Board).
 
 **Audio-only:** join with your camera off — it's the same room, video just stays
 disabled.
@@ -27,9 +59,9 @@ disabled.
 
 ## Build your first live lesson — a walk-through
 
-A complete run from an empty dashboard to a live class with a slide on screen.
-In LearnHouse a "lesson" is an **Activity** inside a course chapter. This takes
-about five minutes.
+A complete run from an empty dashboard to a live class with a slide on screen
+and a Board beside the video. In LearnHouse a "lesson" is an **Activity** inside
+a course chapter. This takes about five minutes.
 
 <Callout type="info">
 **Uploading images?** Artifact uploads (the course thumbnail, images in the
@@ -60,20 +92,37 @@ A short, hands-on live session to get comfortable teaching on camera with a shar
 ### Add a chapter
 
 Open the course and click **New Chapter** — chapters group your lessons; a live
-class lives in one of them. Name it:
+class lives in one of them. The **description is required**, so paste both:
+
+Name:
 
 ```text
 Session 1
+```
+
+Description:
+
+```text
+Get set up and comfortable on camera before we teach live — one short warm-up session.
 ```
 
 ### Add the lesson (activity)
 
 Inside the chapter, click **Add Activity → New activity** and pick the **page**
 (editor) type — the page editor is where you write the lesson and drop in the
-artifacts your class sees beside the video. Name it:
+artifacts your class sees beside the video. The lesson **description is required
+too**, so fill in both:
+
+Name:
 
 ```text
 Welcome & warm-up
+```
+
+Description:
+
+```text
+A 10-minute warm-up: check your audio and video, meet on the Board, and run your first short live session.
 ```
 
 ### Add content and a slide
@@ -112,19 +161,61 @@ Click **Publish**. (The **Go live** button is available to you as the
 teacher whether or not the lesson is published — but students need it published
 to see the lesson.)
 
-### (Optional) Attach a Board
+### Attach a Board (video beside shared work)
 
-Create a [Board](/platform/boards) (**Boards → New**) for shared notes and
-diagrams, and note its id from the URL (`/board/<boardId>`). The live room can
-render it beside the video.
+This is what turns a plain video call into a teaching space: a shared
+[Board](/platform/boards) rendered beside the video grid. The **Go live** button
+opens a video-only room, so you attach the Board by hand — once:
+
+1. Create the Board: go to **Boards → New**, open it, and let it load.
+   (See [Boards](/platform/boards) for what a Board can do — drawing, notes,
+   shared diagrams.)
+2. Copy its id from the browser address bar. The Board URL looks like
+   `…/board/board_AbC123` — the id is the `board_AbC123` part (the bare
+   `AbC123` works too).
+3. Build the live URL by adding `&board=` to the room link:
+
+   ```text
+   /course/<courseId>/live?activity=<activityId>&board=board_AbC123
+   ```
+
+   `<courseId>` and `<activityId>` are the same ids the **Go live** button uses
+   (visible in its link / the lesson URL, with the `course_` / `activity_`
+   prefixes dropped). Open that URL and the room shows **video beside the
+   Board**.
+
+<Callout type="info">
+Keep that full `…&board=…` link — it's the one you share so students land in the
+same room **with** the Board. The plain **Go live** button always opens
+video-only.
+</Callout>
 
 ### Go live
 
-From the lesson, click **🎥 Go live**, allow camera + microphone, and you're in
-the room with your slide and Board beside the video grid. Share the lesson link
-and your students join the same room.
+Open the lesson and, in its action row, click **🎥 Go live** (or open your
+`…&board=…` link from the previous step). Allow camera + microphone, and you're
+in the room with your slide and Board beside the video grid. You'll be alone
+until students join — share the link and they join the same room.
 
 </Steps>
+
+## How students join
+
+A student joins the **same room**, keyed to the same lesson — there's nothing
+extra to install:
+
+1. The student opens the **published lesson** (from the course, or a link you
+   send them).
+2. They click **🎥 Go live** in the lesson's action row, the same button you
+   use. They must be **logged in** — live classrooms put everyone in the room as
+   themselves, so an anonymous visitor is sent to the login page first.
+3. They **allow camera and microphone**, and their tile appears in your grid.
+
+To put students straight into the room **with the Board**, share your
+`…&board=…` link from [Attach a Board](#attach-a-board-video-beside-shared-work)
+instead of just telling them to click **Go live** — the button alone opens
+video-only. Either way it's one shared room: as each person joins, their tile
+shows up for everyone already there.
 
 ## Uploading artifacts
 
