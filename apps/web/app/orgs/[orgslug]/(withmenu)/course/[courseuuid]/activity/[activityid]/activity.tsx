@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { getUriWithOrg } from '@services/config/config'
-import { BookOpenCheck, CheckCircle, ChevronLeft, ChevronRight, MessageSquare, UserRoundPen, Edit2, Maximize2, Minimize2, Trophy, Sparkles, XCircle, Lock, RotateCcw, Infinity as InfinityIcon } from 'lucide-react'
+import { BookOpenCheck, CheckCircle, ChevronLeft, ChevronRight, MessageSquare, UserRoundPen, Edit2, Maximize2, Minimize2, Trophy, Sparkles, XCircle, Lock, RotateCcw, Video, Infinity as InfinityIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { markActivityAsComplete, unmarkActivityAsComplete } from '@services/courses/activity'
 import { usePathname, useRouter } from 'next/navigation'
@@ -170,6 +170,19 @@ function ActivityActions({ activity, activityid, course, orgslug, assignment, sh
 
   return (
     <div className="flex space-x-2 items-center">
+      {activity && activity.activity_type != 'TYPE_ASSIGNMENT' && (
+        <AuthenticatedClientElement checkMethod="authentication">
+          {/* Join the live classroom for this lesson (video beside the Board). */}
+          <Link
+            href={getUriWithOrg(orgslug, '') + `/course/${course.course_uuid.replace('course_', '')}/live?activity=${(activity.activity_uuid || '').replace('activity_', '')}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-black text-white text-sm px-3 py-1.5 hover:bg-gray-800 transition-colors"
+            title="Join the live classroom for this lesson"
+          >
+            <Video size={16} />
+            Go live
+          </Link>
+        </AuthenticatedClientElement>
+      )}
       {activity && activity.published == true && activity.content.paid_access != false && (
         <AuthenticatedClientElement checkMethod="authentication">
           {activity.activity_type != 'TYPE_ASSIGNMENT' && (
