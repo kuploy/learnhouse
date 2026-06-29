@@ -55,9 +55,37 @@ Browser↔STUNner relay is **UDP/3478 only** today; no TLS/TCP fallback until
 TURN-over-TLS (kuploy-k8s#35). On a UDP-blocked network the client can't connect
 — a success on one permissive network doesn't prove every network.
 
-## Where the image comes from
+## Where the images come from (and how to build them)
 
-`ceduth/learnhouse-app` is built from this fork and pushed to Docker Hub by the
-`publish-live-classrooms-image.yaml` workflow on every push to `main` that
-touches `apps/**` or the `Dockerfile` (amd64). You don't need to build it to
-deploy the template — the tag is already published.
+Two Docker Hub images back the template, both built from this fork (amd64) and
+both already published — you don't need to build anything to deploy:
+
+| Image | Built by | Triggers on |
+|---|---|---|
+| `ceduth/learnhouse-app` | `publish-live-classrooms-image.yaml` | push to `main` touching `apps/**` or `Dockerfile` |
+| `ceduth/learnhouse-docs` | `publish-docs-image.yaml` | push to `main` touching `docs/**` (build-verifies on any PR touching `docs/**`) |
+
+Both push `:main` and `:main-<sha>` tags. Renovate keeps their deps and base
+images current (it auto-discovers `apps/`/`docs/` `package.json` + the
+Dockerfiles); a merged dep bump rebuilds the image through these workflows — no
+separate renovate config builds images.
+
+### Force a build manually (`gh`)
+
+Both workflows have `workflow_dispatch`, so you can build + push on demand
+without a code change — handy to refresh `:main` or recover from a skipped run.
+Run from a clone of `kuploy/learnhouse` (the CLI infers the repo):
+
+```bash
+# build + push the app image from main
+gh workflow run "Publish learnhouse-app image (Docker Hub)" --ref main
+# build + push the docs image from main
+gh workflow run "Publish learnhouse-docs image (Docker Hub)" --ref main
+
+# watch the run you just kicked off
+gh run list  --workflow "Publish learnhouse-docs image (Docker Hub)" --limit 3
+gh run watch <run-id>
+```
+
+A dispatched run logs in to Docker Hub and pushes (only `pull_request` events
+skip the push), so a manual dispatch from `main` publishes the tag.
