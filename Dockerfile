@@ -64,45 +64,56 @@ COPY apps/collab/src/ ./src/
 
 RUN bun run build
 
+# Prune to production deps so the runtime image can copy node_modules directly
+# (devDeps like tsx/typescript were only needed for the tsc build above).
+RUN bun install --production --frozen-lockfile
+
 # ───────────────────────────────────────────────
 # Stage 5: Final image combining frontend + backend + collab
 # ───────────────────────────────────────────────
 FROM python:3.14.3-slim-bookworm AS runner
 
-# Single apt layer: nginx, curl, netcat, node, pm2
+# Single apt layer: nginx, curl, netcat, node, pm2. No bun here — it's only a
+# build-time tool (the runtime runs node/pm2/uv), so it stays out of the image.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends nginx curl netcat-openbsd ca-certificates gnupg unzip build-essential \
+    && apt-get install -y --no-install-recommends nginx curl netcat-openbsd ca-certificates gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && npm install -g pm2 \
-    && curl -fsSL https://bun.sh/install | bash \
     && apt-get purge -y gnupg \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm \
     && rm /etc/nginx/sites-enabled/default
 
-ENV PATH="/root/.bun/bin:${PATH}"
-
 # Copy the frontend standalone build
 COPY --from=frontend-runner /app /app/web
 
-# Backend: install deps first (better layer caching)
+# Backend: install deps first (better layer caching). build-essential is needed
+# only to compile Python wheels during `uv sync`, so install and purge it in the
+# same layer — it never lands in the final image.
 WORKDIR /app/api
 COPY ./apps/api/uv.lock ./apps/api/pyproject.toml ./
-RUN pip install --no-cache-dir --upgrade pip uv \
-    && uv sync --no-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && pip install --no-cache-dir --upgrade pip uv \
+    && uv sync --no-dev \
+    && apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 COPY ./apps/api ./
 
 # Remove Enterprise Edition folder for public builds
 ARG LEARNHOUSE_PUBLIC=false
 RUN if [ "$LEARNHOUSE_PUBLIC" = "true" ]; then rm -rf /app/api/ee; fi
 
-# Collab server: copy built JS + production deps
+# Collab server: copy built JS + the production node_modules from the builder.
+# package.json carries "type": "module" so node treats dist/*.js as ESM.
 WORKDIR /app/collab
 COPY --from=collab-builder /app/dist ./dist
-COPY apps/collab/package.json apps/collab/bun.lock* ./
-RUN bun install --production
+COPY --from=collab-builder /app/node_modules ./node_modules
+COPY apps/collab/package.json ./
 
 # Copy configs and scripts
 WORKDIR /app
