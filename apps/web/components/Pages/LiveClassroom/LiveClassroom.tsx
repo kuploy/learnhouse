@@ -80,8 +80,16 @@ export default function LiveClassroom({
 
   return (
     <div className="flex h-screen w-full flex-col md:flex-row bg-[#f8f8f8]">
-      {/* Video grid */}
-      <div className={boardUuid ? 'h-1/2 md:h-full md:w-1/2' : 'h-full w-full'}>
+      {/* Video grid. min-w-0/min-h-0 lets this flex child shrink to its 1/2
+          basis — without it the wide LiveKit grid keeps min-width:auto and
+          squeezes the Board pane to ~0. */}
+      <div
+        className={
+          boardUuid
+            ? 'h-1/2 min-h-0 md:h-full md:w-1/2 md:min-w-0'
+            : 'h-full w-full'
+        }
+      >
         <LiveKitRoom
           serverUrl={live.url}
           token={live.token}
@@ -100,7 +108,7 @@ export default function LiveClassroom({
 
       {/* LearnHouse Board, side by side with the video */}
       {boardUuid && (
-        <div className="h-1/2 md:h-full md:w-1/2 border-t md:border-t-0 md:border-l border-gray-200">
+        <div className="h-1/2 min-h-0 md:h-full md:w-1/2 md:min-w-0 border-t md:border-t-0 md:border-l border-gray-200">
           <BoardCanvasClient
             boardUuid={boardUuid}
             accessToken={accessToken}
