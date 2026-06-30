@@ -14,6 +14,13 @@ if [ -n "$LEARNHOUSE_SQL_CONNECTION_STRING" ]; then
     fi
 fi
 
+# The collab server authorizes board sessions and persists ydoc state by calling
+# the FastAPI backend directly. In this image the backend listens on
+# $LEARNHOUSE_PORT (9000) — the collab default (localhost:8000) points at the web
+# app instead, so board auth round-trips through the web proxy and fails. Pin it
+# to the in-pod backend, respecting any external override.
+export LEARNHOUSE_API_URL="${LEARNHOUSE_API_URL:-http://localhost:${LEARNHOUSE_PORT:-9000}}"
+
 # Start the services
 # Use server-wrapper.js for runtime environment variable injection
 pm2 start server-wrapper.js --cwd /app/web --name learnhouse-web > /dev/null 2>&1

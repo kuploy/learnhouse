@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { Callout, Steps } from 'nextra/components'
 
 # Boards
 
@@ -11,6 +11,51 @@ Boards must be enabled in your [Organization Settings](/platform/organizations/s
 ## How Boards Work
 
 Each board is an infinite canvas backed by Yjs CRDTs, so concurrent edits merge without conflicts. The collaboration server (Hocuspocus) syncs changes in real time over WebSockets and persists document state to Redis and PostgreSQL.
+
+## Create a board and add content
+
+<Steps>
+
+### Open the Boards dashboard
+
+In the **Dashboard**, go to **Boards** (`/dash/boards`). This is where boards are
+created — the Boards page in the main (public) menu only lists and opens
+existing boards; it has no create button.
+
+### Create the board
+
+Click **New board** (the **+** button, top-right — you need board-create
+permission). In the dialog, give it a **Name** (required) and an optional
+**Description**, then click **Create board**.
+
+### Open the canvas
+
+The new board shows up as a card. Open the canvas from the card's **⋮** menu →
+**Open board** (the card's title/thumbnail go to its **Settings** instead).
+
+### Add content
+
+The canvas has a floating toolbar at the bottom. Pick a tool, then click on the
+canvas to drop it in:
+
+- **Draw** — freehand pen; pick a colour and thin/medium/thick width
+- **Add card**, **Frame**, **Note**, **To-do**, **Sticker** — structure and annotate
+- **YouTube**, **Webpage**, **Embed** (paste embed code), **Podcast** — bring media in
+- **Activity** — embed a LearnHouse lesson; **AI Playground** — an AI block
+- **Select** / **Pan** to move around; **Undo / Redo** on the right
+
+Everything autosaves and syncs live — anyone who opens the same board sees your
+changes in real time.
+
+</Steps>
+
+<Callout type="info">
+**Using a board in a live class?** On the lesson, pick this board once from the
+**▾** beside **🎥 Go live** — it's remembered, so you and your students join with
+it in one click (no copying ids). See
+[Live Classrooms → Attach a Board](/platform/live-classrooms#attach-a-board-video-beside-shared-work)
+for the full flow.
+</Callout>
 
 ## Key Features
 
