@@ -2,6 +2,7 @@
 
 import '@livekit/components-styles'
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   LiveKitRoom,
@@ -171,17 +172,66 @@ export default function LiveClassroom({
     document.body.style.userSelect = 'none'
   }
 
-  // Native Picture-in-Picture: float the active video tile over other apps.
-  // Single-element PiP (broadly supported); a full-grid pop-out window via the
-  // Document PiP API is tracked separately.
-  const [pipSupported, setPipSupported] = React.useState(false)
+  // Pop the live video out of the page. Preferred: the Document Picture-in-Picture
+  // API, which floats the WHOLE LiveKit grid (+ controls) in a real OS window over
+  // other apps — we portal <VideoConference> into that window while <LiveKitRoom>
+  // stays mounted here, so the call never reconnects. Fallback: single-element
+  // requestPictureInPicture() on the active tile where Document PiP is missing.
+  const [docPipEl, setDocPipEl] = React.useState<HTMLElement | null>(null)
+  const [popOutSupported, setPopOutSupported] = React.useState(false)
+  const docPipWinRef = React.useRef<Window | null>(null)
+
+  const hasDocPip = () =>
+    typeof window !== 'undefined' && 'documentPictureInPicture' in window
+
   React.useEffect(() => {
-    setPipSupported(
-      typeof document !== 'undefined' && (document as any).pictureInPictureEnabled === true,
-    )
+    const elPip =
+      typeof document !== 'undefined' && (document as any).pictureInPictureEnabled === true
+    setPopOutSupported(hasDocPip() || elPip)
   }, [])
 
-  const togglePip = async () => {
+  // Close any open Document-PiP window when leaving the room.
+  React.useEffect(() => {
+    return () => {
+      try {
+        docPipWinRef.current?.close()
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [])
+
+  const enterDocPip = async () => {
+    try {
+      const win: Window = await (window as any).documentPictureInPicture.requestWindow({
+        width: 480,
+        height: 320,
+      })
+      docPipWinRef.current = win
+      // Carry our stylesheets so the LiveKit grid renders correctly in the PiP doc.
+      document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+        win.document.head.appendChild(node.cloneNode(true))
+      })
+      win.document.body.style.margin = '0'
+      win.document.body.style.background = '#000'
+      const host = win.document.createElement('div')
+      host.style.cssText = 'position:fixed;inset:0;'
+      win.document.body.appendChild(host)
+      win.addEventListener(
+        'pagehide',
+        () => {
+          docPipWinRef.current = null
+          setDocPipEl(null)
+        },
+        { once: true },
+      )
+      setDocPipEl(host)
+    } catch {
+      /* user dismissed or API unavailable — no-op */
+    }
+  }
+
+  const togglePipElement = async () => {
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture()
@@ -200,6 +250,22 @@ export default function LiveClassroom({
     } catch {
       /* PiP blocked or no active video — no-op */
     }
+  }
+
+  const onPopOut = () => {
+    if (docPipEl) {
+      try {
+        docPipWinRef.current?.close()
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+    if (hasDocPip()) {
+      enterDocPip()
+      return
+    }
+    togglePipElement()
   }
 
   const copyLink = async () => {
@@ -242,11 +308,27 @@ export default function LiveClassroom({
       data-lk-theme="default"
       className="h-full"
     >
-      <VideoConference />
-      {/* Plays remote participants' audio. */}
+      {/* When popped out, the grid renders in the Document-PiP window. The portal
+          keeps it inside the LiveKit React context, so the room stays connected. */}
+      {docPipEl ? createPortal(<VideoConference />, docPipEl) : <VideoConference />}
+      {/* Plays remote participants' audio (always in the page). */}
       <RoomAudioRenderer />
     </LiveKitRoom>
   )
+
+  // Shown in the page where the video used to be while it's popped out.
+  const popOutPlaceholder = docPipEl ? (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-neutral-900 text-center text-neutral-300">
+      <PictureInPicture2 size={28} className="text-neutral-500" />
+      <p className="text-sm">Video is in a pop-out window</p>
+      <button
+        onClick={onPopOut}
+        className="rounded-full bg-white/10 px-4 py-1.5 text-sm text-white hover:bg-white/20 transition-colors"
+      >
+        Bring it back
+      </button>
+    </div>
+  ) : null
 
   const boardPane = boardUuid ? (
     <BoardCanvasClient
@@ -262,6 +344,7 @@ export default function LiveClassroom({
     return (
       <div className="relative h-screen w-full bg-[#f8f8f8]">
         {videoPane}
+        {popOutPlaceholder && <div className="absolute inset-0 z-20">{popOutPlaceholder}</div>}
         <RoomControls
           hasBoard={false}
           isDesktop={isDesktop}
@@ -269,8 +352,9 @@ export default function LiveClassroom({
           setView={setView}
           copied={copied}
           onCopy={copyLink}
-          pipSupported={pipSupported}
-          onPip={togglePip}
+          popOutSupported={popOutSupported}
+          isPoppedOut={!!docPipEl}
+          onPopOut={onPopOut}
         />
       </div>
     )
@@ -309,8 +393,9 @@ export default function LiveClassroom({
         setView={setView}
         copied={copied}
         onCopy={copyLink}
-        pipSupported={pipSupported}
-        onPip={togglePip}
+        popOutSupported={popOutSupported}
+        isPoppedOut={!!docPipEl}
+        onPopOut={onPopOut}
       />
 
       {/* Board */}
@@ -342,7 +427,7 @@ export default function LiveClassroom({
         }`}
         style={videoStyle}
       >
-        {floating && (
+        {floating && !docPipEl && (
           <div
             onPointerDown={startFloatDrag}
             className="absolute inset-x-0 top-0 z-10 flex h-6 cursor-move items-center justify-center bg-black/40 text-white/80 hover:bg-black/50"
@@ -352,6 +437,7 @@ export default function LiveClassroom({
           </div>
         )}
         <div className="h-full w-full">{videoPane}</div>
+        {popOutPlaceholder && <div className="absolute inset-0 z-20">{popOutPlaceholder}</div>}
       </div>
     </div>
   )
@@ -364,8 +450,9 @@ function RoomControls({
   setView,
   copied,
   onCopy,
-  pipSupported,
-  onPip,
+  popOutSupported,
+  isPoppedOut,
+  onPopOut,
 }: {
   hasBoard: boolean
   isDesktop: boolean
@@ -373,8 +460,9 @@ function RoomControls({
   setView: (_v: View) => void
   copied: boolean
   onCopy: () => void
-  pipSupported: boolean
-  onPip: () => void
+  popOutSupported: boolean
+  isPoppedOut: boolean
+  onPopOut: () => void
 }) {
   const btn = (active: boolean) =>
     `flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
@@ -399,11 +487,11 @@ function RoomControls({
           <div className="mx-0.5 h-5 w-px bg-gray-200" />
         </>
       )}
-      {pipSupported && (
+      {popOutSupported && (
         <button
-          className={btn(false)}
-          title="Pop out video (Picture-in-Picture)"
-          onClick={onPip}
+          className={btn(isPoppedOut)}
+          title={isPoppedOut ? 'Bring video back' : 'Pop out video'}
+          onClick={onPopOut}
         >
           <PictureInPicture2 size={16} />
         </button>
