@@ -89,3 +89,47 @@ gh run watch <run-id>
 
 A dispatched run logs in to Docker Hub and pushes (only `pull_request` events
 skip the push), so a manual dispatch from `main` publishes the tag.
+
+### Test a branch build (dev / troubleshooting)
+
+To try an unmerged branch on a live deployment without merging to `main`, build
+its image, point the deployment at it, then roll back to `:main`.
+
+1. **Build + push the branch.** `workflow_dispatch` on the branch publishes
+   `:<branch>` and `:<branch>-<sha>` (slashes in the branch name are flattened,
+   e.g. `fix/foo` → `fix-foo`):
+
+   ```bash
+   gh workflow run "Publish learnhouse-app image (Docker Hub)" --ref <branch>
+   gh run watch <run-id>
+   ```
+
+2. **Point the deployment at the tag.** kuploy names the deployment
+   `learnhouse-app-<hash>` in namespace `project-<org>`; find it with
+   `kubectl -n <ns> get deploy | grep learnhouse-app`. Prefer the
+   **sha-pinned** tag so the pull is unambiguous; `*=` sets every container:
+
+   ```bash
+   kubectl -n project-<org> set image deploy/learnhouse-app-<hash> \
+     '*=ceduth/learnhouse-app:<branch>-<sha>'
+   kubectl -n project-<org> rollout status deploy/learnhouse-app-<hash>
+   ```
+
+   A fresh `-<sha>` tag always rolls the pod. A **floating** tag (`:<branch>`,
+   `:main`) won't re-pull if the string is unchanged — force it with
+   `kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>`.
+
+3. **Roll back to production** once done — re-pin `:main` (and restart, since
+   the tag string is unchanged):
+
+   ```bash
+   kubectl -n project-<org> set image deploy/learnhouse-app-<hash> \
+     '*=ceduth/learnhouse-app:main'
+   kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>
+   ```
+
+> This `set image` is a **manual override** outside the kuploy stack spec. A
+> dashboard **Redeploy** (or any stack reconcile) resets the image to whatever
+> the spec pins — so it's for testing only, and rolling back to `:main` keeps
+> the override and the spec in agreement. The same steps apply to
+> `learnhouse-docs` (swap the deployment name and `ceduth/learnhouse-docs`).
