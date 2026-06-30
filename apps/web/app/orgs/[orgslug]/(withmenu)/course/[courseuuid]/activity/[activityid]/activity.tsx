@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { getUriWithOrg } from '@services/config/config'
-import { BookOpenCheck, CheckCircle, ChevronLeft, ChevronRight, MessageSquare, UserRoundPen, Edit2, Maximize2, Minimize2, Trophy, Sparkles, XCircle, Lock, RotateCcw, Video, Infinity as InfinityIcon } from 'lucide-react'
+import { BookOpenCheck, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Check, MessageSquare, UserRoundPen, Edit2, Maximize2, Minimize2, Trophy, Sparkles, XCircle, Lock, RotateCcw, Video, LayoutDashboard, Infinity as InfinityIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { markActivityAsComplete, unmarkActivityAsComplete } from '@services/courses/activity'
 import { usePathname, useRouter } from 'next/navigation'
@@ -16,8 +16,18 @@ import { AssignmentProvider } from '@components/Contexts/Assignments/AssignmentC
 import { AssignmentsTaskProvider } from '@components/Contexts/Assignments/AssignmentsTaskContext'
 import AssignmentSubmissionProvider, { useAssignmentSubmission } from '@components/Contexts/Assignments/AssignmentSubmissionContext'
 import toast from 'react-hot-toast'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
+import { getBoards } from '@services/boards/boards'
+import { updateActivity } from '@services/courses/activities'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@components/ui/dropdown-menu'
 import { useTrail } from '@/hooks/queries/useTrail'
 import { useCourseMeta } from '@/hooks/queries/useCourses'
 import { useActivity } from '@/hooks/queries/useActivity'
@@ -160,6 +170,107 @@ function useActivityPosition(course: any, activityId: string) {
   }, [course, activityId]);
 }
 
+// Go live entry point for a lesson. The board is remembered on the lesson
+// (extra_metadata.live_board_uuid via JSONB — no schema change), so everyone,
+// including students, joins with that board in one click. Teachers change it
+// from the dropdown and the choice persists for the next session. The live room
+// reads the board from a `&board=` query param, so we just build the URL.
+function GoLiveButton({ orgslug, course, activity }: { orgslug: string; course: any; activity: any }) {
+  const [open, setOpen] = React.useState(false)
+  const org = useOrg() as any
+  const session = useLHSession() as any
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const access_token = session?.data?.tokens?.access_token
+  const org_id = org?.id
+
+  const storedBoard: string | null = activity?.extra_metadata?.live_board_uuid || null
+
+  const base = getUriWithOrg(orgslug, '') +
+    `/course/${course.course_uuid.replace('course_', '')}/live?activity=${(activity.activity_uuid || '').replace('activity_', '')}`
+  const liveHref = (boardUuid?: string | null) =>
+    boardUuid ? `${base}&board=${String(boardUuid).replace('board_', '')}` : base
+
+  const { data: boards, isLoading } = useQuery({
+    queryKey: queryKeys.boards.list(orgslug),
+    queryFn: () => getBoards(org_id, access_token),
+    enabled: open && !!access_token && !!org_id,
+    staleTime: 60_000,
+  })
+
+  const isCurrent = (boardUuid: string) =>
+    !!storedBoard && (storedBoard === boardUuid || storedBoard === boardUuid.replace('board_', ''))
+
+  // Remember the chosen board on the lesson (best-effort: teachers only — a
+  // viewer's 403 is ignored), then open the live room.
+  const choose = async (boardUuid: string | null) => {
+    setOpen(false)
+    if (boardUuid !== storedBoard && activity?.activity_uuid) {
+      try {
+        await updateActivity(
+          { extra_metadata: { ...(activity.extra_metadata || {}), live_board_uuid: boardUuid } },
+          activity.activity_uuid,
+          access_token,
+        )
+        queryClient.invalidateQueries({ queryKey: queryKeys.activity.detail(activity.activity_uuid) })
+      } catch {
+        /* no update permission — still join with the board via the URL */
+      }
+    }
+    router.push(liveHref(boardUuid))
+  }
+
+  return (
+    <div className="inline-flex items-stretch rounded-full bg-black text-white text-sm overflow-hidden">
+      <Link
+        href={liveHref(storedBoard)}
+        className="inline-flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 hover:bg-gray-800 transition-colors"
+        title={storedBoard ? 'Join live with the lesson board' : 'Join the live classroom'}
+      >
+        <Video size={16} />
+        Go live
+      </Link>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="px-1.5 border-l border-white/20 hover:bg-gray-800 transition-colors"
+            title="Choose a board to go live with"
+          >
+            <ChevronDown size={15} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>Go live with…</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => choose(null)} className="cursor-pointer">
+            <Video className="mr-2 h-4 w-4" /> Video only
+            {!storedBoard && <Check className="ml-auto h-4 w-4" />}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {isLoading && (
+            <div className="px-2 py-1.5 text-xs text-gray-400">Loading boards…</div>
+          )}
+          {!isLoading && (!boards || boards.length === 0) && (
+            <div className="px-2 py-1.5 text-xs text-gray-400">
+              No boards yet — create one in Dashboard → Boards.
+            </div>
+          )}
+          {(boards || []).map((b: any) => (
+            <DropdownMenuItem
+              key={b.board_uuid}
+              onClick={() => choose(b.board_uuid)}
+              className="cursor-pointer"
+            >
+              <LayoutDashboard className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">{b.name}</span>
+              {isCurrent(b.board_uuid) && <Check className="ml-auto h-4 w-4 shrink-0" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
 function ActivityActions({ activity, activityid, course, orgslug, assignment, showNavigation = true, trailData }: ActivityActionsProps) {
 
   const { t: _t } = useTranslation();
@@ -172,15 +283,7 @@ function ActivityActions({ activity, activityid, course, orgslug, assignment, sh
     <div className="flex space-x-2 items-center">
       {activity && activity.activity_type != 'TYPE_ASSIGNMENT' && (
         <AuthenticatedClientElement checkMethod="authentication">
-          {/* Join the live classroom for this lesson (video beside the Board). */}
-          <Link
-            href={getUriWithOrg(orgslug, '') + `/course/${course.course_uuid.replace('course_', '')}/live?activity=${(activity.activity_uuid || '').replace('activity_', '')}`}
-            className="inline-flex items-center gap-1.5 rounded-full bg-black text-white text-sm px-3 py-1.5 hover:bg-gray-800 transition-colors"
-            title="Join the live classroom for this lesson"
-          >
-            <Video size={16} />
-            Go live
-          </Link>
+          <GoLiveButton orgslug={orgslug} course={course} activity={activity} />
         </AuthenticatedClientElement>
       )}
       {activity && activity.published == true && activity.content.paid_access != false && (
