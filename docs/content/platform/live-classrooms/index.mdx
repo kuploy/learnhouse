@@ -21,18 +21,22 @@ there is?" — it isn't; you're just the only one there yet.
 
 What shows up depends on how you opened the room:
 
-- **Video only** — just the video grid. This is what you get if you pick
-  **Video only** when going live.
-- **Video beside a Board** — when you click **Go live**, the menu lets you pick a
-  [Board](/platform/boards) to bring in next to the video. See
-  [Attach a Board](#attach-a-board-video-beside-shared-work) below.
+- **Video only** — just the video grid. This is what you get when no Board is
+  saved on the lesson (or you pick **Video only**).
+- **Video beside a Board** — **Go live** opens the [Board](/platform/boards)
+  saved on the lesson next to the video; use the **▾** beside Go live to pick or
+  change it. See [Attach a Board](#attach-a-board-video-beside-shared-work) below.
 - **Audio-only** — join with your camera off. It's the **same room**; video just
   stays disabled (handy for low bandwidth or a quick voice check).
 
+Inside the room you can **drag the divider** to resize, switch **Video / Split /
+Board** views, **pop the video out** into a floating tile (or
+Picture-in-Picture), and **Copy link** to invite others.
+
 So if you went live and saw only your own camera with no Board, nothing is
-broken — you were alone in a video-only room. Pick a Board when you go live and
-invite students, and the room fills out into the side-by-side teaching space
-below.
+broken — you were alone in a video-only room. Save a Board on the lesson (the
+**▾** beside Go live) and invite students, and the room fills out into the
+side-by-side teaching space below.
 
 ## Start a live class
 
@@ -47,9 +51,10 @@ below.
 ![The Go live button sits in the lesson's action row, bottom-right beside Mark as complete](/img/live-classrooms/go-live-button.png)
 
 The **Go live** button is the only place to start a live class — there's no
-separate "live" tab or dashboard widget. The lesson is the entry point; clicking
-it opens a short menu to join **Video only** or with one of your Boards beside
-the video (see [Attach a Board](#attach-a-board-video-beside-shared-work)).
+separate "live" tab or dashboard widget. The lesson is the entry point; the
+button opens the room with whatever Board is saved on the lesson, and the **▾**
+beside it lets you pick or change that Board (see
+[Attach a Board](#attach-a-board-video-beside-shared-work)).
 
 **Audio-only:** join with your camera off — it's the same room, video just stays
 disabled.
@@ -169,28 +174,27 @@ This is what turns a plain video call into a teaching space: a shared
    [Boards → Create a board and add content](/platform/boards#create-a-board-and-add-content)
    — in short: **Dashboard → Boards → New board**, then open the canvas and drop
    in notes, drawings, cards, or embeds.
-2. Back on the lesson, click **🎥 Go live** and pick your Board from the menu
-   (the menu lists **Video only** plus every Board in your organization).
-   That's it — the room opens with **video beside the Board**.
+2. Back on the lesson, click the **▾** beside **🎥 Go live** and pick your Board
+   (the menu lists **Video only** plus every Board in your organization). It's
+   **remembered on the lesson** — from now on **Go live** opens the room with
+   that Board for you *and* your students, no link to share. To change or remove
+   it later, pick another Board (or **Video only**) from the same menu.
 
 <Callout type="info">
-Prefer a shareable link? Picking a Board opens the room at
-`…/course/<courseId>/live?activity=<activityId>&board=<id>` — copy that URL from
-your address bar and share it so students land in the same room **with** the
-Board. You can also build it by hand: take the lesson's `course`/`activity` ids
-(the `course_` / `activity_` prefixes dropped) and append `&board=<id>`, where
-`<id>` is the trailing segment of the Board URL (`…/board/<id>`, no `board_`
-prefix). Choosing **Video only** — or the plain link without `&board=` — opens a
-video-only room.
+Need a one-off link instead? The room URL carries the Board as a query param —
+`…/course/<courseId>/live?activity=<activityId>&board=<id>`. Grab it with the
+**Copy link** button inside the room, or build it by hand (append `&board=<id>`,
+where `<id>` is the trailing segment of the Board URL `…/board/<id>`, no
+`board_` prefix). Choosing **Video only** opens a video-only room.
 </Callout>
 
 ### Go live
 
-Open the lesson and, in its action row, click **🎥 Go live**, then choose
-**Video only** or a Board from the menu. Allow camera + microphone, and you're in
-the room — with your slide and (if you picked one) the Board beside the video
-grid. You'll be alone until students join; share the link and they join the same
-room.
+Open the lesson and click **🎥 Go live** — it opens with the Board you saved (use
+the **▾** to switch). Allow camera + microphone and you're in. Inside, **drag the
+divider** to resize, switch **Video / Split / Board** views, **pop the video
+out** into a floating tile or Picture-in-Picture, and **Copy link** to invite
+others. You'll be alone until students join.
 
 </Steps>
 
@@ -201,18 +205,15 @@ extra to install:
 
 1. The student opens the **published lesson** (from the course, or a link you
    send them).
-2. They click **🎥 Go live** in the lesson's action row, the same button you
-   use, and pick the same Board (or **Video only**) from the menu. They must be
-   **logged in** — live classrooms put everyone in the room as themselves, so an
-   anonymous visitor is sent to the login page first.
+2. They click **🎥 Go live** in the action row. If you saved a Board on the
+   lesson, they land in it automatically — the **same** Board as everyone else.
+   They must be **logged in** — live classrooms put everyone in the room as
+   themselves, so an anonymous visitor is sent to the login page first.
 3. They **allow camera and microphone**, and their tile appears in your grid.
 
-The video room is keyed to the lesson, so everyone who joins is in the **same
-call** regardless of what they pick. The Board, though, follows the `&board=` in
-each person's URL — so to guarantee the whole class lands on the **same** Board,
-share your `…&board=…` link from
-[Attach a Board](#attach-a-board-video-beside-shared-work) rather than relying on
-everyone picking the same one from the menu.
+Because the Board is saved on the lesson, the whole class lands on the same room
+**and** the same Board with a single click — no special link to share. (You still
+can if you want: the in-room **Copy link** button copies the exact URL.)
 
 ## Uploading artifacts
 
