@@ -266,7 +266,7 @@ function RoomControls({
   hasBoard: boolean
   isDesktop: boolean
   view: View
-  setView: (v: View) => void
+  setView: (_v: View) => void
   copied: boolean
   onCopy: () => void
 }) {
