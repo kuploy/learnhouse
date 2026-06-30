@@ -417,7 +417,9 @@ export default async function proxy(req: NextRequest) {
   const resolved = await resolveTenant(req, instance)
   const requestHeaders = tenantRequestHeaders(req, resolved, instance)
   const response = NextResponse.rewrite(
-    new URL(`/orgs/${resolved.slug}${pathname}`, req.url),
+    // Keep the query string — server components read it via props.searchParams
+    // (e.g. the live room's ?activity=…&board=…). Dropping it left those null.
+    new URL(`/orgs/${resolved.slug}${pathname}${search}`, req.url),
     { request: { headers: requestHeaders } },
   )
   setOrgCookies(response, resolved, instance)
