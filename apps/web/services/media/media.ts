@@ -1,12 +1,14 @@
 import { getBackendUrl, getConfig } from '@services/config/config'
 
 function getMediaUrl() {
-  const mediaUrl = getConfig('NEXT_PUBLIC_LEARNHOUSE_MEDIA_URL');
-  if (mediaUrl) {
-    return mediaUrl;
-  } else {
-    return getBackendUrl();
-  }
+  // Every builder below concatenates `content/...` straight onto this base, so
+  // it MUST end with exactly one slash. The default backend URL
+  // (`http://localhost/`) has one, but a deploy-provided
+  // NEXT_PUBLIC_LEARNHOUSE_BACKEND_URL / _MEDIA_URL often doesn't — without
+  // normalization the base and `content` fuse into a bogus host
+  // (`https://host.appcontent/...`) and every media request fails to resolve.
+  const mediaUrl = getConfig('NEXT_PUBLIC_LEARNHOUSE_MEDIA_URL') || getBackendUrl();
+  return mediaUrl.endsWith('/') ? mediaUrl : `${mediaUrl}/`;
 }
 
 function getApiUrl() {

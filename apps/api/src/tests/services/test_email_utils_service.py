@@ -38,6 +38,8 @@ def _config(**overrides):
         smtp_username=overrides.pop("smtp_username", "user"),
         smtp_password=overrides.pop("smtp_password", "pass"),
         smtp_use_tls=overrides.pop("smtp_use_tls", True),
+        hub_url=overrides.pop("hub_url", None),
+        hub_token=overrides.pop("hub_token", None),
     )
     return SimpleNamespace(
         hosting_config=hosting,
@@ -325,6 +327,49 @@ class TestEmailUtilsService:
         smtp_client.login.assert_called_once_with("smtp-user", "smtp-pass")
         smtp_client.sendmail.assert_called_once()
         smtp_client.quit.assert_called_once()
+
+    def test_send_email_routes_to_hub(self):
+        response = Mock(status_code=200)
+        response.json.return_value = {"ok": True, "messageId": "hub-msg-1"}
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(
+                email_provider="hub",
+                hub_url="https://cloud.test/api/apps/email/send",
+                hub_token="app-token",
+            ),
+        ), patch(
+            "src.services.email.utils.requests.post",
+            return_value=response,
+        ) as mock_post:
+            result = send_email("to@test.com", "Hello", "<p>Body</p>")
+
+        assert result == {"id": "hub-msg-1", "to": "to@test.com"}
+        assert mock_post.call_args.args[0] == "https://cloud.test/api/apps/email/send"
+        kwargs = mock_post.call_args.kwargs
+        assert kwargs["headers"]["Authorization"] == "Bearer app-token"
+        assert kwargs["json"] == {
+            "to": "to@test.com",
+            "subject": "Hello",
+            "html": "<p>Body</p>",
+        }
+
+    def test_send_email_hub_rejection_raises_503(self):
+        response = Mock(status_code=401, text="unauthorized")
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(
+                email_provider="hub",
+                hub_url="https://cloud.test/api/apps/email/send",
+                hub_token="bad-token",
+            ),
+        ), patch(
+            "src.services.email.utils.requests.post",
+            return_value=response,
+        ):
+            with pytest.raises(HTTPException) as exc:
+                send_email("to@test.com", "Hello", "<p>Body</p>")
+        assert exc.value.status_code == 503
 
     def test_send_email_smtp_without_tls_or_login(self):
         smtp_client = Mock()

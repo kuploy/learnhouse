@@ -87,7 +87,7 @@ class HostingConfig(BaseModel):
 
 
 class MailingConfig(BaseModel):
-    email_provider: Literal["resend", "smtp"]
+    email_provider: Literal["resend", "smtp", "hub"]
     system_email_address: str
     resend_api_key: Optional[str] = None
     smtp_host: Optional[str] = None
@@ -95,6 +95,12 @@ class MailingConfig(BaseModel):
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
     smtp_use_tls: Optional[bool] = True
+    # Hub-mediated email (Kuploy Cloud). The app never holds the instance
+    # license key: it POSTs to cloud-server's proxy (hub_url) with a per-app
+    # bearer token (hub_token), injected at deploy. The proxy resolves the org
+    # and forwards to the hub relay, which resolves a branded sender server-side.
+    hub_url: Optional[str] = None
+    hub_token: Optional[str] = None
 
 
 class DatabaseConfig(BaseModel):
@@ -416,10 +422,14 @@ def get_learnhouse_config() -> LearnHouseConfig:
     env_smtp_username = os.environ.get("LEARNHOUSE_SMTP_USERNAME")
     env_smtp_password = os.environ.get("LEARNHOUSE_SMTP_PASSWORD")
     env_smtp_use_tls = os.environ.get("LEARNHOUSE_SMTP_USE_TLS")
+    env_hub_url = os.environ.get("LEARNHOUSE_EMAIL_HUB_URL")
+    env_hub_token = os.environ.get("LEARNHOUSE_EMAIL_HUB_TOKEN")
 
     email_provider = env_email_provider or yaml_config.get("mailing_config", {}).get(
         "email_provider", "resend"
     )
+    hub_url = env_hub_url or yaml_config.get("mailing_config", {}).get("hub_url")
+    hub_token = env_hub_token or yaml_config.get("mailing_config", {}).get("hub_token")
     resend_api_key = env_resend_api_key or yaml_config.get("mailing_config", {}).get(
         "resend_api_key"
     )
@@ -631,6 +641,8 @@ def get_learnhouse_config() -> LearnHouseConfig:
             smtp_username=smtp_username,
             smtp_password=smtp_password,
             smtp_use_tls=smtp_use_tls,
+            hub_url=hub_url,
+            hub_token=hub_token,
         ),
         payments_config=InternalPaymentsConfig(
             stripe=InternalStripeConfig(
