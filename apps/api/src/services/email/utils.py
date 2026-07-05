@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from pydantic import EmailStr
 from fastapi import Request
+import requests
 import resend
 from config.config import get_learnhouse_config
 
@@ -235,7 +236,9 @@ def send_email(to: EmailStr, subject: str, body: str):
         logger.error("Refusing to send email: invalid recipient %r", to)
         raise HTTPException(status_code=400, detail="Invalid recipient email address")
 
-    if mailing.email_provider == "smtp":
+    if mailing.email_provider == "hub":
+        return _send_email_hub(to_addr, subject, body, mailing)
+    elif mailing.email_provider == "smtp":
         return _send_email_smtp(sender, to_addr, subject, body, mailing)
     else:
         return _send_email_resend(sender, to_addr, subject, body, mailing)
@@ -292,4 +295,45 @@ def _send_email_smtp(sender: str, to: str, subject: str, body: str, mailing):
                 server.quit()
             except Exception:
                 pass
+
+
+def _send_email_hub(to: str, subject: str, body: str, mailing):
+    """Send via Kuploy Cloud's hub-email proxy.
+
+    The app never holds the instance license key: it POSTs to cloud-server's
+    proxy (`hub_url`) with a per-app bearer token (`hub_token`), injected at
+    deploy. The proxy authenticates the token, resolves the org, and forwards
+    to the hub relay — which resolves a branded sender server-side, so no
+    `from` is sent here.
+    """
+    from fastapi import HTTPException
+
+    if not mailing.hub_url or not mailing.hub_token:
+        logger.error("Hub email provider selected but hub_url/hub_token unset")
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
+    try:
+        res = requests.post(
+            mailing.hub_url,
+            headers={
+                "Authorization": f"Bearer {mailing.hub_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={"to": to, "subject": subject, "html": body},
+            timeout=_SMTP_TIMEOUT,
+        )
+    except requests.RequestException as e:
+        logger.error("Hub email request failed to %s: %s", to, e, exc_info=True)
+        raise HTTPException(status_code=503, detail="Email service unavailable")
+
+    if res.status_code >= 400:
+        logger.error("Hub email rejected (%s) for %s: %s", res.status_code, to, res.text[:200])
+        raise HTTPException(status_code=503, detail="Email service error")
+
+    try:
+        data = res.json()
+    except ValueError:
+        data = {}
+    return {"id": data.get("messageId"), "to": to}
 
