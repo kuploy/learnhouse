@@ -43,6 +43,18 @@ def _zip_bytes(files: dict[str, bytes]) -> bytes:
     return buffer.getvalue()
 
 
+def _zip_bytes_unix_mode(files: dict[str, bytes], mode: int = 0o100644) -> bytes:
+    """Like _zip_bytes, but every entry carries a Unix mode in external_attr,
+    as `zip` and `ZipFile.write()` from a real file do."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for name, content in files.items():
+            info = zipfile.ZipInfo(name)
+            info.external_attr = mode << 16
+            zip_file.writestr(info, content)
+    return buffer.getvalue()
+
+
 def _upload_file(content: bytes) -> UploadFile:
     return UploadFile(filename="package.zip", file=BytesIO(content))
 
@@ -549,6 +561,56 @@ class TestImportHelpers:
             with pytest.raises(HTTPException) as exc:
                 await analyze_import_package(
                     mock_request, _upload_file(buf.getvalue()), org.id, admin_user, db
+                )
+        assert exc.value.status_code == 400
+        assert "symlink" in exc.value.detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_analyze_import_package_accepts_regular_unix_mode_entries(
+        self, db, org, admin_user, mock_request, tmp_path, monkeypatch
+    ):
+        """
+        #23: a package built with `zip` or `ZipFile.write()` stores each entry
+        with a Unix mode such as 0o100644. S_IFREG (0x8000) shares a bit with
+        S_IFLNK (0xA000), so the old `external_attr & (0xA000 << 16)` test
+        refused every such package as a "symlink entry". Only a real S_IFLNK
+        mode may be refused.
+        """
+        manifest = {
+            "version": "2.0.0",
+            "format": "learnhouse-course-export",
+            "courses": [{"course_uuid": "course-1", "path": "course-1"}],
+        }
+        files = {
+            "manifest.json": json.dumps(manifest).encode(),
+            "course-1/course.json": json.dumps(
+                {"course_uuid": "course-1", "name": "Unix mode course"}
+            ).encode(),
+        }
+        _set_import_temp_dir(monkeypatch, tmp_path)
+
+        with patch(
+            "src.services.courses.transfer.import_service.check_resource_access",
+            new_callable=AsyncMock,
+        ):
+            result = await analyze_import_package(
+                mock_request,
+                _upload_file(_zip_bytes_unix_mode(files, 0o100644)),
+                org.id,
+                admin_user,
+                db,
+            )
+            assert result.temp_id
+            assert result.courses[0].name == "Unix mode course"
+
+            # A real symlink mode on the same package is still refused.
+            with pytest.raises(HTTPException) as exc:
+                await analyze_import_package(
+                    mock_request,
+                    _upload_file(_zip_bytes_unix_mode(files, 0o120777)),
+                    org.id,
+                    admin_user,
+                    db,
                 )
         assert exc.value.status_code == 400
         assert "symlink" in exc.value.detail.lower()
