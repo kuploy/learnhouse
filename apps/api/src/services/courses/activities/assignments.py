@@ -120,6 +120,21 @@ async def authorize_assignment_access(
     await check_resource_access(request, db_session, current_user, course_uuid, access_action)
 
 
+async def _token_has_action(
+    request: Request,
+    db_session: AsyncSession,
+    current_user: APITokenUser,
+    course_uuid: str,
+    access_action: AccessAction,
+) -> bool:
+    """Whether an API token holds the ``assignments`` right for ``access_action`` on the course."""
+    try:
+        await authorize_assignment_access(request, db_session, current_user, course_uuid, access_action)
+    except HTTPException:
+        return False
+    return True
+
+
 async def _is_assignment_instructor(
     request: Request,
     current_user: PublicUser | AnonymousUser | APITokenUser,
@@ -1397,6 +1412,15 @@ async def handle_assignment_task_submission(
     db_session: AsyncSession,
     on_behalf_of_user_id: int | None = None,
 ):
+    """Write a learner's answer to a task, and (for a grading principal) its mark.
+
+    The HTTP route passes ``on_behalf_of_user_id`` (a query parameter) and the body's
+    optional ``assignment_task_submission_uuid`` through together, unchecked. A token's
+    body still never reaches the uuid fallback below: the token branch nulls the three
+    row-pointing fields for every token call, so the row is found by learner and task
+    only. The ownership check on the found row is a second lock on the same thing,
+    and it holds for a token whatever its grading rights.
+    """
     assignment_task_submission_uuid = assignment_task_submission_object.assignment_task_submission_uuid
     # Check if assignment task exists
     statement = select(AssignmentTask).where(
@@ -1437,8 +1461,19 @@ async def handle_assignment_task_submission(
     )
     if token_submitter is not None:
         submitter = token_submitter
-        is_instructor = False
+        # A token holding assignments.update grades the way an instructor does
+        # (learnhouse#21): the lab checker that submits a learner's answer also
+        # carries the grade it computed. One without it writes the answer only.
+        is_instructor = await _token_has_action(request, db_session, current_user, course.course_uuid, AccessAction.UPDATE)
         is_token_submit = True
+        # Whatever its rights, a token writes the answer and the mark, never where the
+        # row points: the task is the one in the URL and the row keeps its own uuid.
+        # (PR #22 review 5995080215: an update token could repoint a learner's row
+        # to another task, or rename it.)
+        assignment_task_submission_object.assignment_task_id = None
+        assignment_task_submission_object.assignment_type = None
+        assignment_task_submission_object.assignment_task_submission_uuid = None
+        assignment_task_submission_uuid = None
     else:
         _block_api_tokens(current_user)
         submitter = current_user
@@ -1489,8 +1524,9 @@ async def handle_assignment_task_submission(
             # authorized via assignments.create in _resolve_token_submission_user.
             await check_resource_access(request, db_session, current_user, course.course_uuid, AccessAction.READ)
     else:
-        # SECURITY: Instructors/admins need update permission to grade
-        await check_resource_access(request, db_session, current_user, course.course_uuid, AccessAction.UPDATE)
+        # SECURITY: Instructors/admins need update permission to grade. A token
+        # reaches here only with assignments.update, re-checked by the same call.
+        await authorize_assignment_access(request, db_session, current_user, course.course_uuid, AccessAction.UPDATE)
 
     # Try to find existing submission by user_id and assignment_task_id first (for save progress functionality)
     statement = select(AssignmentTaskSubmission).where(
@@ -1509,8 +1545,9 @@ async def handle_assignment_task_submission(
     # If submission exists, update it
     if assignment_task_submission:
         # SECURITY: non-instructors (students / token submit-on-behalf) can only
-        # touch the submitter's own submission row.
-        if not is_instructor and assignment_task_submission.user_id != submitter.id:
+        # touch the submitter's own submission row. A token stays bound to the
+        # learner it named, grading rights or not (PR #22 review 5995117702).
+        if (not is_instructor or is_token_submit) and assignment_task_submission.user_id != submitter.id:
             raise HTTPException(
                 status_code=403,
                 detail="You can only update your own submissions"
@@ -1534,11 +1571,18 @@ async def handle_assignment_task_submission(
         # Assuming model_dump() returns a dictionary
         model_data = assignment_task_submission_object.model_dump()
 
+        # A grading principal's first write keeps the grade it carries: the lab
+        # checker's one call is both the answer and the mark (learnhouse#21). A
+        # learner's first answer starts ungraded because the non-instructor block
+        # above nulled these three fields, not because of a check here.
+        grade = model_data["grade"] if model_data["grade"] is not None else 0
+        feedback = model_data["task_submission_grade_feedback"] if model_data["task_submission_grade_feedback"] is not None else ""
         assignment_task_submission = AssignmentTaskSubmission(
             assignment_task_submission_uuid=assignment_task_submission_uuid or f"assignmenttasksubmission_{uuid4()}",
             task_submission=model_data["task_submission"],
-            grade=0,  # Always start with 0 for new submissions
-            task_submission_grade_feedback="",  # Start with empty feedback
+            grade=grade,
+            task_submission_grade_feedback=feedback,
+            manually_graded=bool(model_data.get("manually_graded")),
             assignment_task_id=int(assignment_task.id),  # type: ignore
             assignment_type=assignment_task.assignment_type,
             activity_id=assignment.activity_id,
