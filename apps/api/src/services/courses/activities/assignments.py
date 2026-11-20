@@ -1412,6 +1412,13 @@ async def handle_assignment_task_submission(
     db_session: AsyncSession,
     on_behalf_of_user_id: int | None = None,
 ):
+    """Write a learner's answer to a task, and (for a grading principal) its mark.
+
+    The HTTP route hands the body through and never passes ``on_behalf_of_user_id``
+    together with a body uuid, so the ownership check below (skipped for an
+    instructor) is reached by a token only for the learner it names. A caller added
+    inside the service that passes both would have to re-check that itself.
+    """
     assignment_task_submission_uuid = assignment_task_submission_object.assignment_task_submission_uuid
     # Check if assignment task exists
     statement = select(AssignmentTask).where(
@@ -1457,6 +1464,14 @@ async def handle_assignment_task_submission(
         # carries the grade it computed. One without it writes the answer only.
         is_instructor = await _token_has_action(request, db_session, current_user, course.course_uuid, AccessAction.UPDATE)
         is_token_submit = True
+        # Whatever its rights, a token writes the answer and the mark, never where the
+        # row points: the task is the one in the URL and the row keeps its own uuid.
+        # (PR #22 review 5995080215: an update token could repoint a learner's row
+        # to another task, or rename it.)
+        assignment_task_submission_object.assignment_task_id = None
+        assignment_task_submission_object.assignment_type = None
+        assignment_task_submission_object.assignment_task_submission_uuid = None
+        assignment_task_submission_uuid = None
     else:
         _block_api_tokens(current_user)
         submitter = current_user

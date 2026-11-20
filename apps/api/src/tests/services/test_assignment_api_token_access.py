@@ -533,6 +533,47 @@ class TestTokenGradesOnSubmit:
         assert row.grade == 0
         assert row.manually_graded is False
 
+    async def test_update_token_cannot_repoint_or_rename_the_row(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # Review 5995080215: the body carries assignment_task_id, assignment_type and
+        # assignment_task_submission_uuid, and a grading token used to write all
+        # three. The row stays on the task in the URL and keeps its own uuid.
+        assignment, task1 = await self._seed_task(db, org, course, chapter, activity)
+        task2 = AssignmentTask(
+            title="Q2", description="d", hint="", reference_file=None,
+            assignment_type=AssignmentTaskTypeEnum.QUIZ, contents={},
+            max_grade_value=100, assignment_id=assignment.id, org_id=org.id,
+            course_id=course.id, chapter_id=chapter.id, activity_id=activity.id,
+            assignment_task_uuid="assignmenttask_obo_other",
+            creation_date=str(datetime.now()), update_date=str(datetime.now()),
+        )
+        db.add(task2)
+        await db.commit()
+        token = _token(assignments=_assignments_rights(create=True, update=True))
+        first = await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test",
+            AssignmentTaskSubmissionUpdate(task_submission={"answer": "a"}, assignment_task_submission_uuid="assignmenttasksubmission_attacker"),
+            token, db, on_behalf_of_user_id=regular_user.id,
+        )
+        assert first.assignment_task_submission_uuid != "assignmenttasksubmission_attacker"
+        body = self._graded_body()
+        body.assignment_task_id = task2.id
+        body.assignment_type = AssignmentTaskTypeEnum.QUIZ
+        body.assignment_task_submission_uuid = "assignmenttasksubmission_attacker"
+        await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test", body, token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        rows = (await db.execute(
+            select(AssignmentTaskSubmission).where(AssignmentTaskSubmission.user_id == regular_user.id)
+        )).scalars().all()
+        assert len(rows) == 1
+        assert rows[0].assignment_task_id == task1.id, "the row moved to another task"
+        assert rows[0].assignment_type == AssignmentTaskTypeEnum.CUSTOM
+        assert rows[0].assignment_task_submission_uuid == first.assignment_task_submission_uuid, "the row was renamed"
+        assert rows[0].grade == 80
+
     async def test_cross_org_update_token_is_forbidden(
         self, mock_request, db, org, course, chapter, activity, regular_user
     ):
