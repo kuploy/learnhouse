@@ -574,6 +574,45 @@ class TestTokenGradesOnSubmit:
         assert rows[0].assignment_task_submission_uuid == first.assignment_task_submission_uuid, "the row was renamed"
         assert rows[0].grade == 80
 
+    async def test_update_token_cannot_write_another_learners_row(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # Review 5995117702: a body naming another learner's row uuid used to find
+        # that row through the uuid fallback and rewrite it, grade and all. The
+        # victim's row is untouched and the named learner gets a row of their own.
+        assignment, task = await self._seed_task(db, org, course, chapter, activity)
+        victim = User(
+            id=77, username="victim", first_name="V", last_name="ictim",
+            email="victim@test.com", password="h", user_uuid="user_victim",
+            creation_date=str(datetime.now()), update_date=str(datetime.now()),
+        )
+        db.add(victim)
+        db.add(AssignmentTaskSubmission(
+            assignment_task_submission_uuid="assignmenttasksubmission_victim",
+            task_submission={"answer": "the victim's own work"},
+            grade=95, task_submission_grade_feedback="excellent", manually_graded=True,
+            assignment_task_id=int(task.id), assignment_type=task.assignment_type,
+            activity_id=activity.id, course_id=course.id, chapter_id=chapter.id,
+            user_id=77, creation_date=str(datetime.now()), update_date=str(datetime.now()),
+        ))
+        await db.commit()
+        token = _token(assignments=_assignments_rights(create=True, update=True))
+        body = self._graded_body()
+        body.assignment_task_submission_uuid = "assignmenttasksubmission_victim"
+        body.grade = 10
+        await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test", body, token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        victim_row = (await db.execute(
+            select(AssignmentTaskSubmission).where(AssignmentTaskSubmission.user_id == 77)
+        )).scalars().one()
+        assert victim_row.grade == 95, "another learner's grade was overwritten"
+        assert victim_row.task_submission == {"answer": "the victim's own work"}
+        assert victim_row.assignment_task_submission_uuid == "assignmenttasksubmission_victim"
+        own = await self._row(db, regular_user)
+        assert own is not None and own.grade == 10, "the named learner got no row of their own"
+
     async def test_cross_org_update_token_is_forbidden(
         self, mock_request, db, org, course, chapter, activity, regular_user
     ):

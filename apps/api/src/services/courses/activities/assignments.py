@@ -1543,8 +1543,9 @@ async def handle_assignment_task_submission(
     # If submission exists, update it
     if assignment_task_submission:
         # SECURITY: non-instructors (students / token submit-on-behalf) can only
-        # touch the submitter's own submission row.
-        if not is_instructor and assignment_task_submission.user_id != submitter.id:
+        # touch the submitter's own submission row. A token stays bound to the
+        # learner it named, grading rights or not (PR #22 review 5995117702).
+        if (not is_instructor or is_token_submit) and assignment_task_submission.user_id != submitter.id:
             raise HTTPException(
                 status_code=403,
                 detail="You can only update your own submissions"
