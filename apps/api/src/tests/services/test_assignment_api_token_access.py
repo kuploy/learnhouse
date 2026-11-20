@@ -430,3 +430,129 @@ class TestSessionOnlyEndpointsStillBlockTokens:
                 mock_request, "assignment_token_test", token, db
             )
         assert exc.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# A token with assignments.update grades on submit (learnhouse#21)
+# ---------------------------------------------------------------------------
+
+
+class TestTokenGradesOnSubmit:
+    """The lab checker submits a learner's answer AND the grade it computed in one
+    call. Before #21 every token hit the 403 "You do not have permission to update
+    grades" as soon as the body carried a grade, so a passed lab never left
+    SUBMITTED. The refusal is what has to stay pinned: a token without
+    ``assignments.update`` still gets that 403, and an instructor session is
+    unchanged."""
+
+    _seed_task = TestTokenSubmitOnBehalf._seed_task
+
+    def _graded_body(self):
+        return AssignmentTaskSubmissionUpdate(
+            task_submission={"answer": "deployed, health 200"},
+            grade=80,
+            task_submission_grade_feedback="Service reachable on its domain",
+            manually_graded=True,
+        )
+
+    async def _row(self, db, regular_user):
+        return (await db.execute(
+            select(AssignmentTaskSubmission).where(
+                AssignmentTaskSubmission.user_id == regular_user.id
+            )
+        )).scalars().first()
+
+    async def test_token_with_update_keeps_grade_feedback_and_flag(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        await self._seed_task(db, org, course, chapter, activity)
+        token = _token(assignments=_assignments_rights(create=True, update=True))
+        result = await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test", self._graded_body(), token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        assert result.user_id == regular_user.id
+        row = await self._row(db, regular_user)
+        assert row.task_submission == {"answer": "deployed, health 200"}
+        assert row.grade == 80, "the grade the checker computed was dropped"
+        assert row.task_submission_grade_feedback == "Service reachable on its domain"
+        assert row.manually_graded is True, "the row would be re-graded by the server pass"
+
+    async def test_token_with_update_regrades_an_existing_answer(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # First the answer alone, then the graded call: the same row, now graded.
+        await self._seed_task(db, org, course, chapter, activity)
+        token = _token(assignments=_assignments_rights(create=True, update=True))
+        await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test",
+            AssignmentTaskSubmissionUpdate(task_submission={"answer": "first try"}), token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        assert (await self._row(db, regular_user)).grade == 0
+        await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test", self._graded_body(), token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        rows = (await db.execute(
+            select(AssignmentTaskSubmission).where(AssignmentTaskSubmission.user_id == regular_user.id)
+        )).scalars().all()
+        assert len(rows) == 1, "a second row instead of an update"
+        assert rows[0].grade == 80
+        assert rows[0].manually_graded is True
+
+    async def test_token_without_update_still_cannot_grade(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # THE PIN. create alone is what every submit-on-behalf token had before
+        # #21; a grade in its body must still be refused, not silently dropped.
+        await self._seed_task(db, org, course, chapter, activity)
+        token = _token(assignments=_assignments_rights(create=True))
+        with pytest.raises(HTTPException) as exc:
+            await handle_assignment_task_submission(
+                mock_request, "assignmenttask_obo_test", self._graded_body(), token, db,
+                on_behalf_of_user_id=regular_user.id,
+            )
+        assert exc.value.status_code == 403
+        assert exc.value.detail == "You do not have permission to update grades"
+        assert await self._row(db, regular_user) is None, "a refused submit wrote a row"
+
+    async def test_token_without_update_answer_only_is_never_graded(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # Same token, answer only: accepted, and the flag a body cannot carry is
+        # forced off (a new answer re-enters the server-graded pool).
+        await self._seed_task(db, org, course, chapter, activity)
+        token = _token(assignments=_assignments_rights(create=True))
+        await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test",
+            AssignmentTaskSubmissionUpdate(task_submission={"answer": "x"}, manually_graded=True), token, db,
+            on_behalf_of_user_id=regular_user.id,
+        )
+        row = await self._row(db, regular_user)
+        assert row.grade == 0
+        assert row.manually_graded is False
+
+    async def test_cross_org_update_token_is_forbidden(
+        self, mock_request, db, org, course, chapter, activity, regular_user
+    ):
+        # update on ANOTHER org buys no grading here: the org boundary is the
+        # course's, enforced inside authorize_assignment_access.
+        await self._seed_task(db, org, course, chapter, activity)
+        token = _token(org_id=org.id + 1, assignments=_assignments_rights(create=True, update=True))
+        with pytest.raises(HTTPException) as exc:
+            await handle_assignment_task_submission(
+                mock_request, "assignmenttask_obo_test", self._graded_body(), token, db,
+                on_behalf_of_user_id=regular_user.id,
+            )
+        assert exc.value.status_code == 403
+
+    async def test_instructor_session_unchanged(
+        self, mock_request, db, org, course, chapter, activity, admin_user
+    ):
+        await self._seed_task(db, org, course, chapter, activity)
+        result = await handle_assignment_task_submission(
+            mock_request, "assignmenttask_obo_test", self._graded_body(), admin_user, db,
+        )
+        assert result.grade == 80
+        assert result.manually_graded is True
