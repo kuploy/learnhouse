@@ -1414,10 +1414,12 @@ async def handle_assignment_task_submission(
 ):
     """Write a learner's answer to a task, and (for a grading principal) its mark.
 
-    The HTTP route hands the body through and never passes ``on_behalf_of_user_id``
-    together with a body uuid, so the ownership check below (skipped for an
-    instructor) is reached by a token only for the learner it names. A caller added
-    inside the service that passes both would have to re-check that itself.
+    The HTTP route passes ``on_behalf_of_user_id`` (a query parameter) and the body's
+    optional ``assignment_task_submission_uuid`` through together, unchecked. A token's
+    body still never reaches the uuid fallback below: the token branch nulls the three
+    row-pointing fields for every token call, so the row is found by learner and task
+    only. The ownership check on the found row is a second lock on the same thing,
+    and it holds for a token whatever its grading rights.
     """
     assignment_task_submission_uuid = assignment_task_submission_object.assignment_task_submission_uuid
     # Check if assignment task exists
