@@ -7,6 +7,7 @@ Supports both local filesystem and S3/R2 cloud storage
 import json
 import os
 import shutil
+import stat
 import time
 import zipfile
 from datetime import datetime
@@ -59,10 +60,17 @@ MAX_ENTRY_SIZE = 250 * 1024 * 1024
 # byte files" attacks even when the compression ratio looks innocent.
 MAX_ENTRY_COUNT = 20000
 
-# Zip central-directory external-attribute mask for symbolic links, in the
-# upper 16 bits (Unix mode). 0xA000 is S_IFLNK. Matching the convention used
-# by zipfile authors, we bail out on any entry whose mode includes this flag.
-_ZIP_SYMLINK_MODE = 0xA000 << 16
+
+
+def _is_symlink_entry(info: zipfile.ZipInfo) -> bool:
+    """True when the entry's Unix mode (upper 16 bits of external_attr) is S_IFLNK.
+
+    Compare the file-type bits, never `& 0xA000`: S_IFREG (0o100000, 0x8000)
+    shares a bit with S_IFLNK (0xA000), so a bit test rejects every regular
+    file written with a Unix mode (`zip`, `ZipFile.write()`), while
+    `writestr` entries (mode 0o600, no type bits) sail through (#23).
+    """
+    return stat.S_ISLNK(info.external_attr >> 16)
 
 
 def validate_zip(content: bytes) -> bool:
@@ -217,7 +225,7 @@ async def analyze_import_package(
                 # SECURITY: reject symlink entries outright — even a contained
                 # symlink can be followed by later entries to write outside
                 # the extract directory.
-                if info.external_attr & _ZIP_SYMLINK_MODE:
+                if _is_symlink_entry(info):
                     raise HTTPException(
                         status_code=400,
                         detail=(
