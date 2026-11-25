@@ -4509,7 +4509,9 @@
         "supported_formats": "Supports JPG, PNG, WebP, and GIF",
         "viewer_title": "Image Viewer",
         "expand_image": "Expand image",
-        "download_image": "Download image"
+        "download_image": "Download image",
+        "alt_text_label": "Image description",
+        "alt_text_placeholder": "Describe this image for screen readers"
       },
       "video_block": {
         "uploading": "Uploading video...",

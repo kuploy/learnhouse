@@ -17,6 +17,12 @@ export default Node.create({
       blockObject: {
         default: null,
       },
+      // Screen readers read this out in place of the image. Imported courses
+      // carry it in the block JSON, so it has to be a declared attribute:
+      // tiptap drops anything it does not know when it parses the content.
+      alt: {
+        default: null,
+      },
       size: {
         width: 300,
       },
