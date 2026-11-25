@@ -20,32 +20,19 @@ import {
   KUPLOY_VERIFIER_MAX_AGE_SECONDS,
   kuployPkcePair,
 } from '../pkce'
+import { resolveKuploySignIn } from '@services/auth/kuploy'
 
 /**
  * Whether this Academy has an instance to sign people in from, and what to
- * call it on the button. The client ids and the secret stay server-side; only
- * these two facts cross.
+ * call it on the button. The login page does NOT call this — it resolves the
+ * same two facts in its server component, so the card paints once
+ * (`services/auth/kuploy.ts` says why). This stays as the HTTP answer to the
+ * same question, and reads it from that one place rather than a second copy
+ * of the env checks.
  */
 export async function GET() {
-  const clientId = process.env.LEARNHOUSE_KUPLOY_CLIENT_ID
-  const issuer = process.env.LEARNHOUSE_KUPLOY_ISSUER
-
-  if (!clientId || !issuer) {
-    return NextResponse.json({ configured: false, site_name: null })
-  }
-
-  let hostname: string | null = null
-  try {
-    hostname = new URL(issuer).hostname
-  } catch {
-    // A malformed issuer is a misconfiguration, not a sign-in option.
-    return NextResponse.json({ configured: false, site_name: null })
-  }
-
-  return NextResponse.json({
-    configured: true,
-    site_name: process.env.LEARNHOUSE_KUPLOY_SITE_NAME || hostname,
-  })
+  const { configured, siteName } = resolveKuploySignIn()
+  return NextResponse.json({ configured, site_name: siteName })
 }
 
 export async function POST(request: NextRequest) {

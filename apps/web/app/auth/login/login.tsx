@@ -21,6 +21,11 @@ import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
 
 interface LoginClientProps {
   org: any
+  // FORK (kuploy-cloud#1443): the name of the Kuploy instance that signs
+  // people in for this Academy, or null when the operator configured none.
+  // Resolved in the server component so the card paints once — see
+  // `services/auth/kuploy.ts`.
+  kuployName?: string | null
 }
 
 const LoginClient = (props: LoginClientProps) => {
@@ -44,9 +49,9 @@ const LoginClient = (props: LoginClientProps) => {
 
   // FORK (kuploy-cloud#1443): the Kuploy instance that runs this Academy can
   // be its own sign-in. The button only appears when the operator configured
-  // one, and its label is the site's own name — not an i18n key, because the
-  // name is the operator's and only the surrounding words would translate.
-  const [kuployName, setKuployName] = useState<string | null>(null)
+  // one, and the site's own name is interpolated into a translated sentence:
+  // the name is the operator's, the words around it are not.
+  const kuployName = props.kuployName ?? null
 
   // FORK (kuploy-cloud#1443): when the instance is this Academy's sign-in, the
   // form starts hidden. A trainee arriving from that site has one account —
@@ -57,23 +62,6 @@ const LoginClient = (props: LoginClientProps) => {
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const instanceIsTheSignIn = kuployName !== null
   const passwordFormShown = !instanceIsTheSignIn || showPasswordForm
-
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/auth/kuploy/authorize')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.configured) {
-          setKuployName(data.site_name)
-        }
-      })
-      .catch(() => {
-        // No instance sign-in offered; the form and Google remain.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const handleKuploySignIn = () => {
     if (props.org?.slug) {
@@ -334,11 +322,12 @@ const LoginClient = (props: LoginClientProps) => {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">{t('auth.welcome_back')}</h1>
             {/* FORK (kuploy-cloud#1443): "enter your credentials" is wrong
-                above a single button. Plain English for the same reason the
-                button's label is: the site's name is the operator's. */}
+                above a single button. The operator's site name is
+                interpolated, the way `auth.invite_required_desc` already
+                interpolates an org name, so the sentence translates. */}
             <p className="text-gray-500 mt-1">
               {instanceIsTheSignIn
-                ? `Sign in with your ${kuployName} account.`
+                ? t('auth.kuploy_sign_in_desc', { name: kuployName })
                 : t('auth.enter_credentials')}
             </p>
           </div>
@@ -354,7 +343,7 @@ const LoginClient = (props: LoginClientProps) => {
                 className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
               >
                 <Lock size={16} />
-                <span>Continue with {kuployName}</span>
+                <span>{t('auth.kuploy_continue_with', { name: kuployName })}</span>
               </button>
             )}
 
@@ -363,7 +352,7 @@ const LoginClient = (props: LoginClientProps) => {
                 onClick={() => setShowPasswordForm(true)}
                 className="block w-full text-center text-xs text-gray-500 hover:text-gray-700 transition-colors mt-4"
               >
-                Sign in with a password instead
+                {t('auth.kuploy_use_password_instead')}
               </button>
             )}
 
@@ -468,9 +457,16 @@ const LoginClient = (props: LoginClientProps) => {
             )}
           </div>
 
-          {/* FORK (kuploy-cloud#1443): no sign-up link when the instance is the
-              sign-in. Signing up here makes the second credential this page is
-              built to avoid; a trainee's account is created on first sign-in. */}
+          {/* FORK (kuploy-cloud#1443): no sign-up LINK when the instance is the
+              sign-in — the page is not blocked. `/signup` still serves
+              `OpenSignup` with a password field to anyone who types the
+              address, and `signup.tsx` defaults `joinMethod` to 'open' when
+              the org set no `signup_mode`. All this removes is the invitation
+              to make a second credential: a trainee needs no account here,
+              because `signWithKuploy` creates their row on first sign-in
+              (`apps/api/src/services/auth/kuploy.py:168`). Blocking the page
+              outright is a decision about every org on the deployment, not
+              about this card, so it is not made here. */}
           {!instanceIsTheSignIn && (
           <p className="text-center text-gray-600 mt-6">
             {t('auth.no_account')}{' '}

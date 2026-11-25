@@ -3,6 +3,7 @@ import { getOrgSlug } from '@services/org/orgResolution'
 import LoginClient from './login'
 import { Metadata } from 'next'
 import OrgNotFound from '@components/Objects/StyledElements/Error/OrgNotFound'
+import { resolveKuploySignIn } from '@services/auth/kuploy'
 
 export async function generateMetadata(): Promise<Metadata> {
   const orgslug = await getOrgSlug()
@@ -48,9 +49,14 @@ const Login = async () => {
     return <OrgNotFound />
   }
 
+  // FORK (kuploy-cloud#1443): resolved here, not fetched in the client, so the
+  // card paints once. `services/auth/kuploy.ts` says what the second paint
+  // was showing.
+  const { siteName } = resolveKuploySignIn()
+
   return (
     <div>
-      <LoginClient org={org}></LoginClient>
+      <LoginClient org={org} kuployName={siteName}></LoginClient>
     </div>
   )
 }
