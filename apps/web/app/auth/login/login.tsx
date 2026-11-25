@@ -42,6 +42,42 @@ const LoginClient = (props: LoginClientProps) => {
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
 
+  // FORK (kuploy-cloud#1443): the Kuploy instance that runs this Academy can
+  // be its own sign-in. The button only appears when the operator configured
+  // one, and its label is the site's own name — not an i18n key, because the
+  // name is the operator's and only the surrounding words would translate.
+  const [kuployName, setKuployName] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/kuploy/authorize')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.configured) {
+          setKuployName(data.site_name)
+        }
+      })
+      .catch(() => {
+        // No instance sign-in offered; the form and Google remain.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleKuploySignIn = () => {
+    if (props.org?.slug) {
+      const topDomain = getLEARNHOUSE_TOP_DOMAIN_VAL();
+      const isSecure = window.location.protocol === 'https:';
+      const secureAttr = isSecure ? '; secure' : '';
+      const baseAttributes = `; path=/; SameSite=Lax${secureAttr}`;
+      const domainAttr = topDomain === 'localhost' ? '' : `; domain=.${topDomain}`;
+      document.cookie = `LH_oauth_orgslug=${props.org.slug}${baseAttributes}${domainAttr}`;
+      document.cookie = `LH_oauth_org_id=${props.org.id}${baseAttributes}${domainAttr}`;
+    }
+    signIn('kuploy', { callbackUrl: `${window.location.origin}/redirect_from_auth` });
+  };
+
   const handleGoogleSignIn = () => {
     track(AnalyticsEvent.LoginGoogleClicked)
     // Store org context in cookies before OAuth redirect
@@ -354,6 +390,19 @@ const LoginClient = (props: LoginClientProps) => {
 
             {/* Social & SSO Buttons */}
             <div className="space-y-2.5">
+              {/* FORK (kuploy-cloud#1443): sign in with the site that runs
+                  this Academy. First, because for a trainee arriving from
+                  that site it is the only account they have. */}
+              {kuployName && (
+                <button
+                  onClick={handleKuploySignIn}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <Lock size={16} />
+                  <span>Continue with {kuployName}</span>
+                </button>
+              )}
+
               <button
                 onClick={handleGoogleSignIn}
                 className="flex items-center justify-center gap-2 w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"

@@ -62,6 +62,10 @@ optional: the feature stays disabled or uses a runtime fallback when the variabl
 | `LEARNHOUSE_GOOGLE_CLIENT_ID` | Google OAuth client ID used by web auth proxy routes. | string | unset unless Google OAuth is enabled | Web, CLI |
 | `LEARNHOUSE_GOOGLE_CLIENT_SECRET` | Google OAuth client secret used by the web token exchange route. | secret string | unset unless Google OAuth is enabled | Web, CLI |
 | `LEARNHOUSE_GOOGLE_OAUTH_CLIENT_ID` | Expected Google OAuth audience for backend ID-token validation. If unset, audience verification is disabled with a warning. | string | unset | API |
+| `LEARNHOUSE_KUPLOY_ISSUER` | Origin of the Kuploy instance that signs people in to this Academy, e.g. `https://gokagny.com`. Set all three Kuploy variables, or none: half-set means no sign-in button and a refusal on any attempt. | URL | unset | Web, API |
+| `LEARNHOUSE_KUPLOY_CLIENT_ID` | OAuth client ID the instance stores for this Academy. | string | unset | Web, API |
+| `LEARNHOUSE_KUPLOY_CLIENT_SECRET` | Shared secret for that client. Also the key the API verifies the instance's ID token with, so it must match exactly. | secret string | unset | Web, API |
+| `LEARNHOUSE_KUPLOY_SITE_NAME` | What the sign-in button calls the instance. Falls back to the issuer's hostname. | string | issuer hostname | Web |
 
 ## Web runtime
 
