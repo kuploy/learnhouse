@@ -4034,7 +4034,9 @@
         "supported_formats": "Supporte JPG, PNG, WebP et GIF",
         "viewer_title": "Visionneuse d'images",
         "expand_image": "Agrandir l'image",
-        "download_image": "Télécharger l'image"
+        "download_image": "Télécharger l'image",
+        "alt_text_label": "Description de l'image",
+        "alt_text_placeholder": "Décrivez cette image pour les lecteurs d'écran"
       },
       "video_block": {
         "uploading": "Téléchargement de la vidéo...",
