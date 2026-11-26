@@ -73,6 +73,16 @@ export default function KuployCallbackPage() {
       // and hand them the authorization code. Raised by `sso-review` on
       // learnhouse#32; PKCE and the server-held client secret stop the code
       // being redeemable, but there is no reason to send it at all.
+      //
+      // One case the removal does cost, for five minutes at a rollout. An
+      // operator who saved the main LearnHouse domain as their Academy
+      // hostname, with a trainee starting on a mapped custom domain, had the
+      // old main-domain redirect_uri accepted — so a code issued just before
+      // the deploy lands here with a differing `returnOrigin` and now fails
+      // CSRF quietly instead of bouncing. `validateOAuthState` caps the state
+      // at five minutes, and in that same configuration the new redirect_uri
+      // is refused outright, so nothing can replace those codes. Measured by
+      // `sso-review` at the merge-base `3d4b36aa`.
 
       const stateValidation = validateOAuthState(state)
       if (!stateValidation.valid) {

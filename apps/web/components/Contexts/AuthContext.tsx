@@ -970,9 +970,8 @@ export async function signIn(
       timestamp: Date.now(),
     }
 
-    if (isCustomDomain()) {
-      stateData.returnOrigin = window.location.origin
-    }
+    // No `returnOrigin`, same as the context's branch: nothing reads it on
+    // this flow any more. Google's two branches keep theirs.
 
     const state = btoa(JSON.stringify(stateData))
     setOAuthStateCookie(csrfToken)
