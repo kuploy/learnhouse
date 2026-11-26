@@ -1,7 +1,7 @@
 from datetime import timedelta, datetime, timezone
 from typing import Literal, Optional
 from fastapi import Depends, APIRouter, HTTPException, Response, status, Request, Form
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from sqlmodel import select
 from src.db.users import AnonymousUser, User, UserRead
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,6 +26,8 @@ from src.security.auth import (
 )
 from src.services.users.users import security_get_user
 from src.services.auth.utils import signWithGoogle, get_google_user_info
+# FORK (kuploy-cloud#1443): this instance as its own sign-in provider.
+from src.services.auth.kuploy import signWithKuploy, kuploy_verified_email
 from src.services.dev.dev import isDevModeEnabled
 from src.services.security.rate_limiting import (
     check_login_rate_limit,
@@ -434,16 +436,41 @@ async def login(
 
 
 class ThirdPartyLogin(BaseModel):
-    email: EmailStr
-    provider: Literal["google"]
-    access_token: str
+    # FORK (kuploy-cloud#1443): optional, because a Kuploy instance's caller
+    # has no email to send — the id_token carries the only address this
+    # sign-in may own, and the browser cannot verify it. Google's path still
+    # requires it; see the validator.
+    email: Optional[EmailStr] = None
+    # FORK (kuploy-cloud#1443): "kuploy" is the Kuploy instance that runs this
+    # Academy acting as its own sign-in. See src/services/auth/kuploy.py.
+    provider: Literal["google", "kuploy"]
+    # Google sends an access token; a Kuploy instance sends an OIDC id_token.
+    # Optional so neither provider has to carry the other's field.
+    access_token: Optional[str] = None
+    id_token: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _require_the_provider_s_credential(self) -> "ThirdPartyLogin":
+        # Making these optional must not let a Google request through without
+        # them: `get_google_user_info(None)` would call Google with the header
+        # "Bearer None", and signWithGoogle takes `email` as an argument.
+        # Each provider is held to exactly the fields it used to carry.
+        if self.provider == "google":
+            if not self.access_token:
+                raise ValueError("access_token is required for provider 'google'")
+            if not self.email:
+                raise ValueError("email is required for provider 'google'")
+        if self.provider == "kuploy" and not self.id_token:
+            raise ValueError("id_token is required for provider 'kuploy'")
+        return self
 
 
 @router.post(
     "/oauth",
     summary="Log in via third-party provider",
     description=(
-        "Sign in or sign up using a third-party OAuth provider (currently Google). "
+        "Sign in or sign up using a third-party OAuth provider: Google, or the "
+        "Kuploy instance that runs this Academy. "
         "On success, sets httpOnly access and refresh cookies and returns the user "
         "profile and tokens."
     ),
@@ -498,6 +525,15 @@ async def third_party_login(
                     detail="Google did not return a verified email for this account",
                 )
             _invite_email = _verified_email.strip().lower()
+        elif body.provider == "kuploy":
+            # FORK (kuploy-cloud#1443): the same rule as Google's above, and
+            # for the same reason. The invite must be checked against the
+            # address the TOKEN carries, not the one the body claims —
+            # otherwise someone presents their own instance token while
+            # naming a victim's invited address, and lands in an org nobody
+            # invited them to. `kuploy_verified_email` raises 401 on a token
+            # this Academy cannot verify.
+            _invite_email = kuploy_verified_email(body.id_token or "")
         else:
             _invite_email = body.email
 
@@ -527,7 +563,10 @@ async def third_party_login(
             _logger.warning(
                 "OAuth org_id=%s supplied for email=%s but no pending invite found; ignoring org_id",
                 org_id,
-                body.email,
+                # FORK (kuploy-cloud#1443): the address actually checked, not
+                # the one the body claimed — which a Kuploy request does not
+                # send at all.
+                _invite_email,
             )
             org_id = None
 
@@ -538,6 +577,13 @@ async def third_party_login(
 
         user = await signWithGoogle(
             request, body.access_token, body.email, org_id, current_user, db_session
+        )
+    # FORK (kuploy-cloud#1443): the Kuploy instance that runs this Academy.
+    # `body.email` is not passed at all — the id_token's own verified `email`
+    # claim owns the account. See src/services/auth/kuploy.py.
+    elif body.provider == "kuploy":
+        user = await signWithKuploy(
+            request, body.id_token or "", org_id, current_user, db_session
         )
     else:
         raise HTTPException(

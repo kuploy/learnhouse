@@ -647,6 +647,68 @@ export function SessionProvider({
           return
         }
 
+        // FORK (kuploy-cloud#1443): the Kuploy instance that runs this
+        // Academy, acting as its own sign-in. Deliberately a sibling of the
+        // Google branch above rather than a shared helper carved out of it —
+        // a helper would conflict on every upstream edit to Google sign-in.
+        if (provider === 'kuploy') {
+          const { secureAttr, domainAttr, sameSiteAttr } = getCookieAttributes()
+          const baseAttributes = `; path=/${sameSiteAttr}${secureAttr}`
+
+          if (options.orgSlug || options.orgId) {
+            if (options.orgSlug) {
+              document.cookie = `LH_oauth_orgslug=${options.orgSlug}${baseAttributes}${domainAttr}`
+            }
+            if (options.orgId) {
+              document.cookie = `LH_oauth_org_id=${options.orgId}${baseAttributes}${domainAttr}`
+            }
+          }
+
+          const csrfToken = generateSecureToken()
+          const stateData: Record<string, any> = {
+            callbackUrl,
+            csrf: csrfToken,
+            timestamp: Date.now(),
+          }
+
+          if (isCustomDomain()) {
+            stateData.returnOrigin = window.location.origin
+          }
+
+          const state = btoa(JSON.stringify(stateData))
+          setOAuthStateCookie(csrfToken)
+
+          // The instance stores exactly one redirect URL for this Academy,
+          // built from the hostname its operator saved. That is the main
+          // domain, so a custom domain bounces back on the callback page.
+          const redirectUri = `${window.location.protocol}//${getLEARNHOUSE_DOMAIN_VAL()}/auth/callback/kuploy`
+
+          const authResponse = await fetch('/api/auth/kuploy/authorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              redirect_uri: redirectUri,
+              state,
+              scope: 'openid profile email',
+            }),
+          })
+
+          if (!authResponse.ok) {
+            const errorData = await authResponse.json().catch(() => ({}))
+            console.error('Kuploy sign-in initiation failed:', errorData)
+            return {
+              ok: false,
+              error: errorData.error || 'Sign-in with this site is not configured',
+              url: null,
+              status: authResponse.status,
+            }
+          }
+
+          const { url: kuployAuthUrl } = await authResponse.json()
+          window.location.href = kuployAuthUrl
+          return
+        }
+
         // Unknown provider
         return {
           ok: false,
@@ -888,6 +950,53 @@ export async function signIn(
 
     const { url: googleAuthUrl } = await authResponse.json()
     window.location.href = googleAuthUrl
+    return
+  }
+
+  // FORK (kuploy-cloud#1443): the same branch as the context's, for callers
+  // that import `signIn` directly. See the note there on why it is a sibling
+  // of the Google branch rather than a shared helper.
+  if (provider === 'kuploy') {
+    const csrfToken = generateSecureToken()
+    const callbackUrl = options?.callbackUrl || '/'
+    const stateData: Record<string, any> = {
+      callbackUrl,
+      csrf: csrfToken,
+      timestamp: Date.now(),
+    }
+
+    if (isCustomDomain()) {
+      stateData.returnOrigin = window.location.origin
+    }
+
+    const state = btoa(JSON.stringify(stateData))
+    setOAuthStateCookie(csrfToken)
+
+    const redirectUri = `${window.location.protocol}//${getLEARNHOUSE_DOMAIN_VAL()}/auth/callback/kuploy`
+
+    const authResponse = await fetch('/api/auth/kuploy/authorize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        redirect_uri: redirectUri,
+        state,
+        scope: 'openid profile email',
+      }),
+    })
+
+    if (!authResponse.ok) {
+      const errorData = await authResponse.json().catch(() => ({}))
+      console.error('Kuploy sign-in initiation failed:', errorData)
+      return {
+        ok: false,
+        error: errorData.error || 'Sign-in with this site is not configured',
+        url: null,
+        status: authResponse.status,
+      }
+    }
+
+    const { url: kuployAuthUrl } = await authResponse.json()
+    window.location.href = kuployAuthUrl
     return
   }
 

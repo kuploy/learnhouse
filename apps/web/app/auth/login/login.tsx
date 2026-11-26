@@ -21,6 +21,11 @@ import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
 
 interface LoginClientProps {
   org: any
+  // FORK (kuploy-cloud#1443): the name of the Kuploy instance that signs
+  // people in for this Academy, or null when the operator configured none.
+  // Resolved in the server component so the card paints once — see
+  // `services/auth/kuploy.ts`.
+  kuployName?: string | null
 }
 
 const LoginClient = (props: LoginClientProps) => {
@@ -41,6 +46,35 @@ const LoginClient = (props: LoginClientProps) => {
   const [verificationResent, setVerificationResent] = useState(false)
   const [showErrorModal, setShowErrorModal] = useState(false)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
+
+  // FORK (kuploy-cloud#1443): the Kuploy instance that runs this Academy can
+  // be its own sign-in. The button only appears when the operator configured
+  // one, and the site's own name is interpolated into a translated sentence:
+  // the name is the operator's, the words around it are not.
+  const kuployName = props.kuployName ?? null
+
+  // FORK (kuploy-cloud#1443): when the instance is this Academy's sign-in, the
+  // form starts hidden. A trainee arriving from that site has one account —
+  // theirs on the site — and a password field is an invitation to make a
+  // second credential the operator cannot revoke: remove someone from the
+  // instance and an Academy password they once set still opens the courses.
+  // So the form is still reachable, one click away, for anyone who has one.
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const instanceIsTheSignIn = kuployName !== null
+  const passwordFormShown = !instanceIsTheSignIn || showPasswordForm
+
+  const handleKuploySignIn = () => {
+    if (props.org?.slug) {
+      const topDomain = getLEARNHOUSE_TOP_DOMAIN_VAL();
+      const isSecure = window.location.protocol === 'https:';
+      const secureAttr = isSecure ? '; secure' : '';
+      const baseAttributes = `; path=/; SameSite=Lax${secureAttr}`;
+      const domainAttr = topDomain === 'localhost' ? '' : `; domain=.${topDomain}`;
+      document.cookie = `LH_oauth_orgslug=${props.org.slug}${baseAttributes}${domainAttr}`;
+      document.cookie = `LH_oauth_org_id=${props.org.id}${baseAttributes}${domainAttr}`;
+    }
+    signIn('kuploy', { callbackUrl: `${window.location.origin}/redirect_from_auth` });
+  };
 
   const handleGoogleSignIn = () => {
     track(AnalyticsEvent.LoginGoogleClicked)
@@ -287,11 +321,42 @@ const LoginClient = (props: LoginClientProps) => {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-gray-900">{t('auth.welcome_back')}</h1>
-            <p className="text-gray-500 mt-1">{t('auth.enter_credentials')}</p>
+            {/* FORK (kuploy-cloud#1443): "enter your credentials" is wrong
+                above a single button. The operator's site name is
+                interpolated, the way `auth.invite_required_desc` already
+                interpolates an org name, so the sentence translates. */}
+            <p className="text-gray-500 mt-1">
+              {instanceIsTheSignIn
+                ? t('auth.kuploy_sign_in_desc', { name: kuployName })
+                : t('auth.enter_credentials')}
+            </p>
           </div>
 
           {/* Login Form Card */}
           <div className="bg-white rounded-xl p-6 nice-shadow">
+            {/* FORK (kuploy-cloud#1443): first and alone, because for a
+                trainee arriving from that site it is the only account they
+                have. */}
+            {instanceIsTheSignIn && (
+              <button
+                onClick={handleKuploySignIn}
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+              >
+                <Lock size={16} />
+                <span>{t('auth.kuploy_continue_with', { name: kuployName })}</span>
+              </button>
+            )}
+
+            {instanceIsTheSignIn && !showPasswordForm && (
+              <button
+                onClick={() => setShowPasswordForm(true)}
+                className="block w-full text-center text-xs text-gray-500 hover:text-gray-700 transition-colors mt-4"
+              >
+                {t('auth.kuploy_use_password_instead')}
+              </button>
+            )}
+
+            {passwordFormShown && (
             <FormLayout onSubmit={formik.handleSubmit}>
               <FormField name="email">
                 <FormLabelAndMessage
@@ -341,7 +406,16 @@ const LoginClient = (props: LoginClientProps) => {
                 </Form.Submit>
               </div>
             </FormLayout>
+            )}
 
+            {/* FORK (kuploy-cloud#1443): the divider and the other ways in
+                belong with the form, so the instance's button stands alone
+                until someone asks for a password. The second half of the test
+                is not decoration: with the instance signing in, Google is
+                hidden, so on an org without enterprise SSO this block holds
+                nothing and the divider would announce an empty space. */}
+            {passwordFormShown && (!instanceIsTheSignIn || ssoEnabled) && (
+            <>
             {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
@@ -354,6 +428,11 @@ const LoginClient = (props: LoginClientProps) => {
 
             {/* Social & SSO Buttons */}
             <div className="space-y-2.5">
+              {/* FORK (kuploy-cloud#1443): no Google here when the instance is
+                  the sign-in. A Google account is a third credential for the
+                  same person, outside the operator's reach, and it is not what
+                  their trainees were given. */}
+              {!instanceIsTheSignIn && (
               <button
                 onClick={handleGoogleSignIn}
                 className="flex items-center justify-center gap-2 w-full py-2.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
@@ -361,6 +440,7 @@ const LoginClient = (props: LoginClientProps) => {
                 <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" alt="" className="w-4 h-4" />
                 <span>{t('auth.sign_in_with_google')}</span>
               </button>
+              )}
 
               {ssoEnabled && (
                 <button
@@ -373,15 +453,28 @@ const LoginClient = (props: LoginClientProps) => {
                 </button>
               )}
             </div>
+            </>
+            )}
           </div>
 
-          {/* Sign Up Link */}
+          {/* FORK (kuploy-cloud#1443): no sign-up LINK when the instance is the
+              sign-in — the page is not blocked. `/signup` still serves
+              `OpenSignup` with a password field to anyone who types the
+              address, and `signup.tsx` defaults `joinMethod` to 'open' when
+              the org set no `signup_mode`. All this removes is the invitation
+              to make a second credential: a trainee needs no account here,
+              because `signWithKuploy` creates their row on first sign-in
+              (`apps/api/src/services/auth/kuploy.py:168`). Blocking the page
+              outright is a decision about every org on the deployment, not
+              about this card, so it is not made here. */}
+          {!instanceIsTheSignIn && (
           <p className="text-center text-gray-600 mt-6">
             {t('auth.no_account')}{' '}
             <Link href="/signup" className="font-semibold text-gray-900 hover:underline">
               {t('auth.sign_up')}
             </Link>
           </p>
+          )}
         </div>
         </div>
     </AuthLayout>

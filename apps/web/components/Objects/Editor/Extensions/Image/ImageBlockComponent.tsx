@@ -39,6 +39,7 @@ function ImageBlockComponent(props: any) {
     width: props.node.attrs.size ? props.node.attrs.size.width : 300,
   })
   const [alignment, setAlignment] = React.useState(props.node.attrs.alignment || 'center')
+  const [alt, setAlt] = React.useState<string>(props.node.attrs.alt || '')
   const [isModalOpen, setIsModalOpen] = React.useState(false)
   const [isUnsplashOpen, setIsUnsplashOpen] = React.useState(false)
 
@@ -212,7 +213,7 @@ function ImageBlockComponent(props: any) {
             <div className="relative group" style={viewFrameStyle}>
               <img
                 src={imageUrl}
-                alt=""
+                alt={alt}
                 className="rounded-lg max-w-full h-auto w-full"
               />
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -252,7 +253,7 @@ function ImageBlockComponent(props: any) {
             <div className="w-full flex flex-col items-center justify-center">
               <img
                 src={imageUrl}
-                alt=""
+                alt={alt}
                 className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
               />
               {unsplashCredit}
@@ -400,7 +401,7 @@ function ImageBlockComponent(props: any) {
                 <div className="relative">
                   <img
                     src={imageUrl || ''}
-                    alt=""
+                    alt={alt}
                     className="rounded-lg nice-shadow max-w-full h-auto"
                     style={{ width: '100%' }}
                   />
@@ -437,6 +438,19 @@ function ImageBlockComponent(props: any) {
                   </div>
                 </div>
               </Resizable>
+              <div style={{ width: imageSize.width, maxWidth: '100%' }}>
+                <input
+                  type="text"
+                  value={alt}
+                  onChange={(e) => {
+                    setAlt(e.target.value)
+                    props.updateAttributes({ alt: e.target.value })
+                  }}
+                  placeholder={t('editor.blocks.image_block.alt_text_placeholder')}
+                  aria-label={t('editor.blocks.image_block.alt_text_label')}
+                  className="mt-2 w-full text-sm px-2 py-1.5 rounded-md bg-neutral-50 border border-neutral-200 text-neutral-700 placeholder:text-neutral-400 outline-none focus:border-neutral-400"
+                />
+              </div>
               {unsplashCredit && (
                 <div style={{ width: imageSize.width, maxWidth: '100%' }}>
                   {unsplashCredit}
@@ -459,7 +473,7 @@ function ImageBlockComponent(props: any) {
             <div className="w-full flex flex-col items-center justify-center">
               <img
                 src={imageUrl}
-                alt=""
+                alt={alt}
                 className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
               />
               {unsplashCredit}

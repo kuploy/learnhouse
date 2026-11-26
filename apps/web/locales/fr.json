@@ -282,6 +282,9 @@
     "password_req_special": "Au moins un caractère spécial (!@#$%...)",
     "welcome_back": "Bon retour",
     "enter_credentials": "Entrez vos identifiants pour accéder à votre compte",
+    "kuploy_sign_in_desc": "Connectez-vous avec votre compte {{name}}.",
+    "kuploy_continue_with": "Continuer avec {{name}}",
+    "kuploy_use_password_instead": "Se connecter avec un mot de passe",
     "no_account": "Vous n'avez pas de compte ?",
     "already_have_account": "Vous avez déjà un compte ?",
     "fill_in_details": "Remplissez vos informations pour commencer",
@@ -4034,7 +4037,9 @@
         "supported_formats": "Supporte JPG, PNG, WebP et GIF",
         "viewer_title": "Visionneuse d'images",
         "expand_image": "Agrandir l'image",
-        "download_image": "Télécharger l'image"
+        "download_image": "Télécharger l'image",
+        "alt_text_label": "Description de l'image",
+        "alt_text_placeholder": "Décrivez cette image pour les lecteurs d'écran"
       },
       "video_block": {
         "uploading": "Téléchargement de la vidéo...",
