@@ -671,9 +671,10 @@ export function SessionProvider({
             timestamp: Date.now(),
           }
 
-          if (isCustomDomain()) {
-            stateData.returnOrigin = window.location.origin
-          }
+          // No `returnOrigin`: nothing reads it on this flow any more. The
+          // callback page is always served from the origin that started the
+          // sign-in, so it has no bounce to feed. Google's two branches keep
+          // theirs — see `auth/callback/kuploy/page.tsx` for why they differ.
 
           const state = btoa(JSON.stringify(stateData))
           setOAuthStateCookie(csrfToken)

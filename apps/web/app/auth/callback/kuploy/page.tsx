@@ -54,36 +54,25 @@ export default function KuployCallbackPage() {
         return
       }
 
-      // A bounce that now no-ops, kept rather than deleted.
+      // NO CUSTOM-DOMAIN BOUNCE HERE, unlike the Google callback, and it is
+      // not an omission.
       //
-      // The instance registers the operator's own Academy hostname, so
-      // `returnOrigin` is set from the same `window.location.origin` as the
-      // redirect_uri and this comparison is equal — see the two sites in
-      // `AuthContext.tsx`. It is NOT dead code: it still forwards a code
-      // issued against a state from before that change, and it is the only
-      // thing that would carry the CSRF and PKCE cookies back to the origin
-      // that started the sign-in if the two ever diverge again. Deleting it
-      // would turn that case into a silent CSRF failure instead of a bounce.
-      // The Google flow's own bounce, which DOES fire, is unchanged.
-      try {
-        const stateData = JSON.parse(atob(state))
-        if (
-          stateData.returnOrigin &&
-          stateData.returnOrigin !== window.location.origin
-        ) {
-          const bounceUrl = new URL(
-            '/auth/callback/kuploy',
-            stateData.returnOrigin
-          )
-          searchParams.forEach((value, key) => {
-            bounceUrl.searchParams.set(key, value)
-          })
-          window.location.href = bounceUrl.toString()
-          return
-        }
-      } catch {
-        // State parsing failed; CSRF validation below reports it.
-      }
+      // Google allows one registered redirect URI per client, so a sign-in
+      // started on a custom domain has to land on the main domain and be
+      // forwarded back to the origin holding its CSRF and PKCE cookies. This
+      // provider is ours: the instance registers the operator's own Academy
+      // hostname (kuploy-cloud `auth/academy-sso.ts:98`, `:173`), better-auth
+      // compares redirect_uri by exact string, and `signIn('kuploy')` sends
+      // `window.location.origin`. So a code can only ever be issued to the
+      // origin that asked for one, and this page is always already there.
+      //
+      // A bounce would therefore be unreachable for any real sign-in and
+      // reachable only by a forged `state`: it has to run before
+      // `validateOAuthState` (the CSRF cookie is on the other origin), so it
+      // would read an attacker's `returnOrigin` out of an unvalidated state
+      // and hand them the authorization code. Raised by `sso-review` on
+      // learnhouse#32; PKCE and the server-held client secret stop the code
+      // being redeemable, but there is no reason to send it at all.
 
       const stateValidation = validateOAuthState(state)
       if (!stateValidation.valid) {
