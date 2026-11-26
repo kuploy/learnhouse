@@ -671,17 +671,22 @@ export function SessionProvider({
             timestamp: Date.now(),
           }
 
-          if (isCustomDomain()) {
-            stateData.returnOrigin = window.location.origin
-          }
+          // No `returnOrigin`: nothing reads it on this flow any more. The
+          // callback page is always served from the origin that started the
+          // sign-in, so it has no bounce to feed. Google's two branches keep
+          // theirs — see `auth/callback/kuploy/page.tsx` for why they differ.
 
           const state = btoa(JSON.stringify(stateData))
           setOAuthStateCookie(csrfToken)
 
-          // The instance stores exactly one redirect URL for this Academy,
-          // built from the hostname its operator saved. That is the main
-          // domain, so a custom domain bounces back on the callback page.
-          const redirectUri = `${window.location.protocol}//${getLEARNHOUSE_DOMAIN_VAL()}/auth/callback/kuploy`
+          // The instance stores exactly one redirect URL for this Academy, and
+          // it is built from the hostname its operator saved — the host the
+          // trainee is on, not this deployment's main domain. Google needs the
+          // main-domain detour because only one URI can be registered with it;
+          // here we own the provider and it already holds the Academy's own
+          // hostname, so sending anything else is refused as
+          // INVALID_REDIRECT_URI (kuploy-cloud `auth/academy-sso.ts`).
+          const redirectUri = `${window.location.origin}/auth/callback/kuploy`
 
           const authResponse = await fetch('/api/auth/kuploy/authorize', {
             method: 'POST',
@@ -965,14 +970,15 @@ export async function signIn(
       timestamp: Date.now(),
     }
 
-    if (isCustomDomain()) {
-      stateData.returnOrigin = window.location.origin
-    }
+    // No `returnOrigin`, same as the context's branch: nothing reads it on
+    // this flow any more. Google's two branches keep theirs.
 
     const state = btoa(JSON.stringify(stateData))
     setOAuthStateCookie(csrfToken)
 
-    const redirectUri = `${window.location.protocol}//${getLEARNHOUSE_DOMAIN_VAL()}/auth/callback/kuploy`
+    // Same contract as the context's branch above: the instance registered the
+    // operator's Academy hostname, which is the origin the trainee is on.
+    const redirectUri = `${window.location.origin}/auth/callback/kuploy`
 
     const authResponse = await fetch('/api/auth/kuploy/authorize', {
       method: 'POST',

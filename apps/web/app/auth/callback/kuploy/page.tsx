@@ -18,7 +18,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Loader2, AlertTriangle, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth, validateOAuthState } from '@components/Contexts/AuthContext'
-import { getLEARNHOUSE_DOMAIN_VAL } from '@services/config/config'
 
 export default function KuployCallbackPage() {
   const searchParams = useSearchParams()
@@ -55,29 +54,35 @@ export default function KuployCallbackPage() {
         return
       }
 
-      // Same custom-domain bounce as the Google flow: the instance only knows
-      // one redirect URL, the main domain's, so a sign-in started on a custom
-      // domain lands here and is forwarded back to the origin that started it
-      // — where the CSRF cookie and the PKCE cookie both live.
-      try {
-        const stateData = JSON.parse(atob(state))
-        if (
-          stateData.returnOrigin &&
-          stateData.returnOrigin !== window.location.origin
-        ) {
-          const bounceUrl = new URL(
-            '/auth/callback/kuploy',
-            stateData.returnOrigin
-          )
-          searchParams.forEach((value, key) => {
-            bounceUrl.searchParams.set(key, value)
-          })
-          window.location.href = bounceUrl.toString()
-          return
-        }
-      } catch {
-        // State parsing failed; CSRF validation below reports it.
-      }
+      // NO CUSTOM-DOMAIN BOUNCE HERE, unlike the Google callback, and it is
+      // not an omission.
+      //
+      // Google allows one registered redirect URI per client, so a sign-in
+      // started on a custom domain has to land on the main domain and be
+      // forwarded back to the origin holding its CSRF and PKCE cookies. This
+      // provider is ours: the instance registers the operator's own Academy
+      // hostname (kuploy-cloud `auth/academy-sso.ts:98`, `:173`), better-auth
+      // compares redirect_uri by exact string, and `signIn('kuploy')` sends
+      // `window.location.origin`. So a code can only ever be issued to the
+      // origin that asked for one, and this page is always already there.
+      //
+      // A bounce would therefore be unreachable for any real sign-in and
+      // reachable only by a forged `state`: it has to run before
+      // `validateOAuthState` (the CSRF cookie is on the other origin), so it
+      // would read an attacker's `returnOrigin` out of an unvalidated state
+      // and hand them the authorization code. Raised by `sso-review` on
+      // learnhouse#32; PKCE and the server-held client secret stop the code
+      // being redeemable, but there is no reason to send it at all.
+      //
+      // One case the removal does cost, for five minutes at a rollout. An
+      // operator who saved the main LearnHouse domain as their Academy
+      // hostname, with a trainee starting on a mapped custom domain, had the
+      // old main-domain redirect_uri accepted — so a code issued just before
+      // the deploy lands here with a differing `returnOrigin` and now fails
+      // CSRF quietly instead of bouncing. `validateOAuthState` caps the state
+      // at five minutes, and in that same configuration the new redirect_uri
+      // is refused outright, so nothing can replace those codes. Measured by
+      // `sso-review` at the merge-base `3d4b36aa`.
 
       const stateValidation = validateOAuthState(state)
       if (!stateValidation.valid) {
@@ -107,9 +112,9 @@ export default function KuployCallbackPage() {
 
       try {
         // Must match the redirect_uri sent at authorize, which is the one the
-        // instance has stored for this client: always the main domain.
-        const domain = getLEARNHOUSE_DOMAIN_VAL()
-        const oauthRedirectUri = `${window.location.protocol}//${domain}/auth/callback/kuploy`
+        // instance has stored for this client: the operator's Academy
+        // hostname, i.e. the origin this page is being served from.
+        const oauthRedirectUri = `${window.location.origin}/auth/callback/kuploy`
 
         const tokenResponse = await fetch('/api/auth/kuploy/token', {
           method: 'POST',
