@@ -18,7 +18,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Loader2, AlertTriangle, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth, validateOAuthState } from '@components/Contexts/AuthContext'
-import { getLEARNHOUSE_DOMAIN_VAL } from '@services/config/config'
 
 export default function KuployCallbackPage() {
   const searchParams = useSearchParams()
@@ -107,9 +106,9 @@ export default function KuployCallbackPage() {
 
       try {
         // Must match the redirect_uri sent at authorize, which is the one the
-        // instance has stored for this client: always the main domain.
-        const domain = getLEARNHOUSE_DOMAIN_VAL()
-        const oauthRedirectUri = `${window.location.protocol}//${domain}/auth/callback/kuploy`
+        // instance has stored for this client: the operator's Academy
+        // hostname, i.e. the origin this page is being served from.
+        const oauthRedirectUri = `${window.location.origin}/auth/callback/kuploy`
 
         const tokenResponse = await fetch('/api/auth/kuploy/token', {
           method: 'POST',
