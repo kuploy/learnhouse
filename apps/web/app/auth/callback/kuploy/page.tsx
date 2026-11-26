@@ -54,10 +54,17 @@ export default function KuployCallbackPage() {
         return
       }
 
-      // Same custom-domain bounce as the Google flow: the instance only knows
-      // one redirect URL, the main domain's, so a sign-in started on a custom
-      // domain lands here and is forwarded back to the origin that started it
-      // — where the CSRF cookie and the PKCE cookie both live.
+      // A bounce that now no-ops, kept rather than deleted.
+      //
+      // The instance registers the operator's own Academy hostname, so
+      // `returnOrigin` is set from the same `window.location.origin` as the
+      // redirect_uri and this comparison is equal — see the two sites in
+      // `AuthContext.tsx`. It is NOT dead code: it still forwards a code
+      // issued against a state from before that change, and it is the only
+      // thing that would carry the CSRF and PKCE cookies back to the origin
+      // that started the sign-in if the two ever diverge again. Deleting it
+      // would turn that case into a silent CSRF failure instead of a bounce.
+      // The Google flow's own bounce, which DOES fire, is unchanged.
       try {
         const stateData = JSON.parse(atob(state))
         if (
