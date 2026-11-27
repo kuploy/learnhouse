@@ -42,6 +42,7 @@ from src.services.email.utils import get_base_url_from_request
 from src.services.analytics.analytics import track
 from src.services.analytics import events as analytics_events
 from src.services.webhooks.dispatch import dispatch_webhooks
+from src.services.orgs.invites import forget_invitations
 from src.security.auth import create_access_token, create_refresh_token
 from src.security.features_utils.plan_check import get_org_plan
 from src.security.features_utils.plans import plan_meets_requirement
@@ -1153,6 +1154,8 @@ async def remove_user_from_org_admin(
         _invalidate_session_cache(user_id)
     except Exception:
         pass
+
+    await forget_invitations(token_user.org_id, [user_id], db_session)
 
     try:
         await decrease_feature_usage("members", token_user.org_id, db_session)
@@ -2314,6 +2317,12 @@ async def anonymize_user(
 
     placeholder_email = f"deleted-user-{user_id}@anonymized.local"
     placeholder_username = f"deleted_user_{user_id}"
+
+    # FORK (kuploy-learnhouse#39): now, before the address is scrubbed.
+    for member_org_id in (await db_session.execute(
+        select(UserOrganization.org_id).where(UserOrganization.user_id == user_id)
+    )).scalars().all():
+        await forget_invitations(member_org_id, [user_id], db_session)
 
     existing_tokens = (await db_session.execute(
         select(APIToken).where(
