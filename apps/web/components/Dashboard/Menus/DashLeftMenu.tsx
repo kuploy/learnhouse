@@ -66,7 +66,6 @@ import {
 } from "@components/ui/hover-menu"
 import { FeedbackModal } from '@components/Objects/Modals/FeedbackModal'
 import { AVAILABLE_LANGUAGES } from '@/lib/languages'
-import { getOrgLogoMediaDirectory } from '@services/media/media'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
@@ -76,6 +75,7 @@ import { getDeploymentMode } from '@services/config/config'
 import PlanBadge from '@components/Dashboard/Shared/PlanRestricted/PlanBadge'
 import { usePlan } from '@components/Hooks/usePlan'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
+import BrandMark from '@components/Objects/BrandMark'
 
 function DashLeftMenu() {
   const org = useOrg() as any
@@ -195,19 +195,13 @@ function DashLeftMenu() {
           className={cn("flex items-center transition-opacity hover:opacity-70", isCollapsed ? "" : "space-x-3")}
           href={'/'}
         >
-          {plan === 'enterprise' && org?.logo_image ? (
-            <img
-              src={getOrgLogoMediaDirectory(org.org_uuid, org.logo_image)}
-              alt={org?.name}
-              className="h-9 w-9 object-contain rounded-lg"
-            />
-          ) : (
+          <BrandMark className="h-9 w-9 rounded-lg">
             <img
               src="/lrn-dash.svg"
               alt="Learnhouse logo"
               className="h-8 w-8"
             />
-          )}
+          </BrandMark>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-sm text-white truncate">

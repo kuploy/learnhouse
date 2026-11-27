@@ -2,12 +2,35 @@ import '../styles/globals.css'
 import React from 'react'
 import Providers from '@components/Providers'
 import { Wix_Madefor_Text } from 'next/font/google'
+import type { Metadata } from 'next'
+import { getOrgSlug } from '@services/org/orgResolution'
+import { getOrganizationContextInfo } from '@services/organizations/orgs'
+import { getOrgFaviconMediaDirectory } from '@services/media/media'
 
 const wixMadeforText = Wix_Madefor_Text({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-default',
 })
+
+// FORK (kuploy-learnhouse#37): the operator's favicon on pages outside /orgs too.
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const orgslug = await getOrgSlug()
+    if (!orgslug) return {}
+    const org = await getOrganizationContextInfo(orgslug, {
+      revalidate: 86400,
+      tags: ['organizations'],
+    })
+    const faviconImage = org?.config?.config?.customization?.general?.favicon_image || org?.config?.config?.general?.favicon_image
+    if (faviconImage) {
+      return { icons: { icon: getOrgFaviconMediaDirectory(org.org_uuid, faviconImage) } }
+    }
+  } catch {
+    // keep the defaults when the org cannot be loaded
+  }
+  return {}
+}
 
 export default function RootLayout({
   children,

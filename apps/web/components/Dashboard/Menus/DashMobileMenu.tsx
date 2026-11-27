@@ -37,11 +37,11 @@ import { getUriWithOrg, getDeploymentMode, getDocsUrl } from '@services/config/c
 import { useTranslation } from 'react-i18next'
 import { changeLanguage } from '@/lib/i18n'
 import { AVAILABLE_LANGUAGES } from '@/lib/languages'
-import { getOrgLogoMediaDirectory } from '@services/media/media'
 import { cn } from '@/lib/utils'
 import { usePlan } from '@components/Hooks/usePlan'
 import { FeedbackModal } from '@components/Objects/Modals/FeedbackModal'
 import { useCommandPalette } from '@components/Dashboard/CommandPalette/CommandPaletteContext'
+import BrandMark from '@components/Objects/BrandMark'
 
 function DashMobileMenu() {
   const org = useOrg() as any
@@ -97,12 +97,14 @@ function DashMobileMenu() {
             className="flex items-center justify-center px-2.5 py-2.5 rounded-full transition-all duration-200"
             aria-label="Home"
           >
-            <img
-              src="/lrn-dash.svg"
-              alt="LearnHouse"
-              className="h-[18px] w-[18px] opacity-60 hover:opacity-90 transition-opacity"
-              style={{ filter: 'brightness(0) invert(1)' }}
-            />
+            <BrandMark className="h-[18px] w-[18px]">
+              <img
+                src="/lrn-dash.svg"
+                alt="LearnHouse"
+                className="h-[18px] w-[18px] opacity-60 hover:opacity-90 transition-opacity"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+            </BrandMark>
           </Link>
           {/* Progressive reveal — more icons as viewport widens */}
           <PillLink href="/dash/courses" icon={<BookOpen size={18} weight="fill" />} active={isActive('/dash/courses')} className="hidden min-[340px]:flex" />
@@ -186,17 +188,11 @@ function DashMobileMenu() {
             >
               {/* Org header */}
               <div className="flex items-center gap-3 px-4 py-3.5">
-                {plan === 'enterprise' && org?.logo_image ? (
-                  <img
-                    src={getOrgLogoMediaDirectory(org.org_uuid, org.logo_image)}
-                    alt={org?.name}
-                    className="h-7 w-7 object-contain rounded-lg"
-                  />
-                ) : (
+                <BrandMark className="h-7 w-7 rounded-lg">
                   <div className="h-7 w-7 flex items-center justify-center bg-white/[0.06] rounded-lg">
                     <img src="/lrn-dash.svg" alt="LearnHouse" className="h-4 w-4" style={{ filter: 'brightness(0) invert(1)' }} />
                   </div>
-                )}
+                </BrandMark>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate leading-none mb-0.5">{org?.name}</p>
                   <p className={cn(

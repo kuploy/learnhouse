@@ -31,6 +31,9 @@ export default function AuthBrandingPanel({ org, welcomeText }: AuthBrandingPane
   // In OSS mode, always show branding regardless of plan
   const plan = usePlan()
   const isEnterprise = plan === 'enterprise'
+  // FORK (kuploy-learnhouse#37): same rule as the page footer.
+  const watermarkConfig = org?.config?.config?.customization?.general?.watermark ?? org?.config?.config?.general?.watermark
+  const showMark = !isEnterprise && (plan === 'free' || watermarkConfig !== false)
 
   const getBackgroundStyle = (): React.CSSProperties => {
     if (background_type === 'gradient' || !background_image) {
@@ -73,8 +76,8 @@ export default function AuthBrandingPanel({ org, welcomeText }: AuthBrandingPane
 
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full p-10">
-        {/* Top bar with LearnHouse lrn.svg logo - hidden for enterprise users */}
-        {!isEnterprise && (
+        {/* Top bar with LearnHouse lrn.svg logo - hidden for enterprise users or with the watermark off */}
+        {showMark && (
           <div className="login-topbar">
             <Link prefetch href="https://learnhouse.app" target="_blank">
               <img
