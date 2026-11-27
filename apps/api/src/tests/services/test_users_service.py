@@ -1129,8 +1129,17 @@ class TestWelcomeEmailFailure:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("with_org", [True, False])
+    # KeyError: the sender can also fail while building the message, before send_email.
+    @pytest.mark.parametrize(
+        "error",
+        [
+            HTTPException(status_code=503, detail="Email service temporarily unavailable"),
+            KeyError("account_creation.heading"),
+        ],
+        ids=["send_fails", "build_fails"],
+    )
     async def test_kuploy_sign_in_survives_a_throwing_sender(
-        self, mock_request, db, org, with_org, monkeypatch
+        self, mock_request, db, org, with_org, error, monkeypatch
     ):
         monkeypatch.setenv("LEARNHOUSE_KUPLOY_CLIENT_ID", "academy-sso")
         monkeypatch.setenv("LEARNHOUSE_KUPLOY_CLIENT_SECRET", "s" * 32)
@@ -1156,9 +1165,7 @@ class TestWelcomeEmailFailure:
             "src.services.users.users.dispatch_webhooks", new_callable=AsyncMock
         ), patch(
             "src.services.users.users.send_account_creation_email",
-            side_effect=HTTPException(
-                status_code=503, detail="Email service temporarily unavailable"
-            ),
+            side_effect=error,
         ) as sender:
             signed_in = await signWithKuploy(
                 mock_request,
