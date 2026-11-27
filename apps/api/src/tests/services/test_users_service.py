@@ -1,11 +1,13 @@
 """Tests for src/services/users/users.py."""
 
 import json
+import time
 
 from datetime import datetime
 from io import BytesIO
 from unittest.mock import AsyncMock, Mock, patch
 
+import jwt
 import pytest
 from fastapi import HTTPException, UploadFile
 from sqlmodel import select
@@ -24,6 +26,7 @@ from src.db.users import (
     UserUpdatePassword,
 )
 from src.security.security import security_hash_password
+from src.services.auth.kuploy import signWithKuploy
 from src.services.users.users import (
     authorize_user_action,
     create_user,
@@ -1119,3 +1122,59 @@ class TestSecurityHelpers:
                     ),
                 )
         assert update_exc.value.status_code == 400
+
+
+class TestWelcomeEmailFailure:
+    """kuploy/learnhouse#34: a welcome email must not decide whether someone can sign in."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("with_org", [True, False])
+    # KeyError: the sender can also fail while building the message, before send_email.
+    @pytest.mark.parametrize(
+        "error",
+        [
+            HTTPException(status_code=503, detail="Email service temporarily unavailable"),
+            KeyError("account_creation.heading"),
+        ],
+        ids=["send_fails", "build_fails"],
+    )
+    async def test_kuploy_sign_in_survives_a_throwing_sender(
+        self, mock_request, db, org, with_org, error, monkeypatch
+    ):
+        monkeypatch.setenv("LEARNHOUSE_KUPLOY_CLIENT_ID", "academy-sso")
+        monkeypatch.setenv("LEARNHOUSE_KUPLOY_CLIENT_SECRET", "s" * 32)
+        email = f"trainee-{with_org}@test.com".lower()
+        id_token = jwt.encode(
+            {
+                "sub": "user-1",
+                "aud": "academy-sso",
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 300,
+                "email": email,
+                "email_verified": True,
+            },
+            "s" * 32,
+            algorithm="HS256",
+        )
+
+        with patch("src.services.users.users.check_limits_with_usage"), patch(
+            "src.services.users.users.increase_feature_usage"
+        ), patch(
+            "src.services.users.users.track", new_callable=AsyncMock
+        ), patch(
+            "src.services.users.users.dispatch_webhooks", new_callable=AsyncMock
+        ), patch(
+            "src.services.users.users.send_account_creation_email",
+            side_effect=error,
+        ) as sender:
+            signed_in = await signWithKuploy(
+                mock_request,
+                id_token,
+                org.id if with_org else None,
+                AnonymousUser(),
+                db,
+            )
+
+        sender.assert_called_once()
+        assert signed_in.email == email
+        assert (await db.exec(select(User).where(User.email == email))).first()

@@ -240,12 +240,21 @@ def send_email(to: EmailStr, subject: str, body: str):
         return _send_email_hub(to_addr, subject, body, mailing)
     elif mailing.email_provider == "smtp":
         return _send_email_smtp(sender, to_addr, subject, body, mailing)
-    else:
+    elif mailing.email_provider == "resend":
         return _send_email_resend(sender, to_addr, subject, body, mailing)
+    else:
+        # None, so callers that check the result report that nothing was sent.
+        logger.warning("No email provider configured; email not sent")
+        return None
 
 
 def _send_email_resend(sender: str, to: str, subject: str, body: str, mailing):
     from fastapi import HTTPException
+
+    if not mailing.resend_api_key:
+        logger.error("Resend email provider selected but resend_api_key unset")
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
     resend.api_key = mailing.resend_api_key
     try:
         return resend.Emails.send({

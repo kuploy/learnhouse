@@ -39,7 +39,7 @@ const CATEGORIES: Record<string, { label: string; keys: string[] }> = {
   },
   email: {
     label: 'Email',
-    keys: ['LEARNHOUSE_RESEND_API_KEY', 'LEARNHOUSE_SYSTEM_EMAIL_ADDRESS'],
+    keys: ['LEARNHOUSE_EMAIL_PROVIDER', 'LEARNHOUSE_RESEND_API_KEY', 'LEARNHOUSE_SYSTEM_EMAIL_ADDRESS'],
   },
   s3: {
     label: 'S3 Storage',

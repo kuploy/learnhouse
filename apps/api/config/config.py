@@ -87,7 +87,7 @@ class HostingConfig(BaseModel):
 
 
 class MailingConfig(BaseModel):
-    email_provider: Literal["resend", "smtp", "hub"]
+    email_provider: Literal["resend", "smtp", "hub", "none"]
     system_email_address: str
     resend_api_key: Optional[str] = None
     smtp_host: Optional[str] = None
@@ -426,7 +426,7 @@ def get_learnhouse_config() -> LearnHouseConfig:
     env_hub_token = os.environ.get("LEARNHOUSE_EMAIL_HUB_TOKEN")
 
     email_provider = env_email_provider or yaml_config.get("mailing_config", {}).get(
-        "email_provider", "resend"
+        "email_provider", "none"
     )
     hub_url = env_hub_url or yaml_config.get("mailing_config", {}).get("hub_url")
     hub_token = env_hub_token or yaml_config.get("mailing_config", {}).get("hub_token")
