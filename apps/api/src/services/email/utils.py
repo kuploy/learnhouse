@@ -219,12 +219,12 @@ def get_base_url_from_request(request: Request) -> str:
     return f"{request.url.scheme}://{request.url.netloc}"
 
 
-def send_email(to: EmailStr, subject: str, body: str):
+def send_email(to: EmailStr, subject: str, body: str, from_name: Optional[str] = None):
     from fastapi import HTTPException
 
     lh_config = get_learnhouse_config()
     mailing = lh_config.mailing_config
-    sender = f"LearnHouse <{mailing.system_email_address}>"
+    sender = f"{from_name or 'LearnHouse'} <{mailing.system_email_address}>"
 
     # Resend (and most providers) require a plain `email@example.com` string.
     # Pydantic's EmailStr is a str subclass, but third-party JSON serializers

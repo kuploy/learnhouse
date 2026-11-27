@@ -6,6 +6,7 @@ from urllib.parse import quote
 from pydantic import EmailStr
 from src.db.organizations import OrganizationRead
 from src.db.users import UserRead
+from src.services.email.brand import EmailBrand, sender_name
 from src.services.email.translations import t
 from src.services.email.utils import send_email
 
@@ -37,7 +38,35 @@ STYLES = {
 }
 
 
-def _email_layout(title: str, body_content: str, footer_note: str = "") -> str:
+def _header_html(brand: Optional[EmailBrand]) -> str:
+    """FORK (kuploy-learnhouse#37): the operator's logo or name, else the built-in mark."""
+    if not brand:
+        return LOGO_SVG
+    name = html.escape(brand.name)
+    if brand.logo_url:
+        return (
+            f'<img src="{html.escape(brand.logo_url)}" alt="{name}" '
+            'style="max-height: 48px; max-width: 200px;" />'
+        )
+    return f'<span style="font-size: 18px; font-weight: 900; color: #000000;">{name}</span>'
+
+
+def _names(brand: Optional[EmailBrand]) -> tuple[str, str]:
+    """The platform name for the HTML body and for the subject line."""
+    if not brand:
+        return "LearnHouse", "LearnHouse"
+    return html.escape(brand.name), brand.name
+
+
+def _send(to, subject: str, body: str, brand: Optional[EmailBrand]):
+    if not brand:
+        return send_email(to=to, subject=subject, body=body)
+    return send_email(to=to, subject=subject, body=body, from_name=sender_name(brand.name))
+
+
+def _email_layout(
+    title: str, body_content: str, footer_note: str = "", brand: Optional[EmailBrand] = None
+) -> str:
     """Wrap content in the standard email layout."""
     footer_html = ""
     if footer_note:
@@ -54,7 +83,7 @@ def _email_layout(title: str, body_content: str, footer_note: str = "") -> str:
     <div style="{STYLES['wrapper']}">
         <div style="{STYLES['container']}">
             <div style="{STYLES['header']}">
-                {LOGO_SVG}
+                {_header_html(brand)}
             </div>
             <div style="{STYLES['content']}">
                 {body_content}
@@ -70,11 +99,13 @@ def send_account_creation_email(
     user: UserRead,
     email: EmailStr,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     safe_username = html.escape(user.username)
 
     heading = t(lang, "account_creation.heading", username=safe_username)
-    body_text = t(lang, "account_creation.body")
+    name, plain_name = _names(brand)
+    body_text = t(lang, "account_creation.body_org" if brand else "account_creation.body", brand=name)
     cta = t(lang, "account_creation.cta")
     academy_link = (
         '<a href="https://university.learnhouse.io" '
@@ -82,23 +113,27 @@ def send_account_creation_email(
         f'{t(lang, "academy_link_text")}</a>'
     )
 
+    cta_url = html.escape(brand.home_url) if brand else "https://university.learnhouse.io"
+
     body_content = f"""
         <h1 style="{STYLES['h1']}">{heading}</h1>
         <p style="{STYLES['p']}">
             {body_text}
         </p>
-        <a href="https://university.learnhouse.io" style="{STYLES['button']}">
+        <a href="{cta_url}" style="{STYLES['button']}">
             {cta}
         </a>
     """
 
-    return send_email(
+    return _send(
         to=email,
-        subject=t(lang, "account_creation.subject", username=safe_username),
+        brand=brand,
+        subject=t(lang, "account_creation.subject", username=safe_username, brand=plain_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "account_creation.footer", academy_link=academy_link),
+            brand=brand,
+            footer_note="" if brand else t(lang, "account_creation.footer", academy_link=academy_link),
         ),
     )
 
@@ -110,6 +145,7 @@ def send_password_reset_email(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     safe_username = html.escape(user.username)
     safe_code = html.escape(generated_reset_code)
@@ -120,6 +156,7 @@ def send_password_reset_email(
     heading = t(lang, "password_reset.heading")
     body_text = t(lang, "password_reset.body", username=safe_username)
     cta = t(lang, "password_reset.cta")
+    name, plain_name = _names(brand)
 
     body_content = f"""
         <h1 style="{STYLES['h1']}">{heading}</h1>
@@ -134,13 +171,15 @@ def send_password_reset_email(
         </a>
     """
 
-    return send_email(
+    return _send(
         to=email,
-        subject=t(lang, "password_reset.subject"),
+        brand=brand,
+        subject=t(lang, "password_reset.subject", brand=plain_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "password_reset.footer_org"),
+            brand=brand,
+            footer_note=t(lang, "password_reset.footer_org", brand=name),
         ),
     )
 
@@ -151,6 +190,7 @@ def send_password_reset_email_platform(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     safe_username = html.escape(user.username)
     safe_code = html.escape(generated_reset_code)
@@ -161,6 +201,7 @@ def send_password_reset_email_platform(
     heading = t(lang, "password_reset.heading")
     body_text = t(lang, "password_reset.body", username=safe_username)
     cta = t(lang, "password_reset.cta")
+    name, plain_name = _names(brand)
 
     body_content = f"""
         <h1 style="{STYLES['h1']}">{heading}</h1>
@@ -175,13 +216,15 @@ def send_password_reset_email_platform(
         </a>
     """
 
-    return send_email(
+    return _send(
         to=email,
-        subject=t(lang, "password_reset.subject"),
+        brand=brand,
+        subject=t(lang, "password_reset.subject", brand=plain_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "password_reset.footer_platform"),
+            brand=brand,
+            footer_note=t(lang, "password_reset.footer_platform", brand=name),
         ),
     )
 
@@ -193,6 +236,7 @@ def send_invitation_email(
     signup_url: str,
     invite_code: Optional[str] = None,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     safe_org_name = html.escape(org_name)
     safe_inviter = html.escape(inviter_username)
@@ -229,13 +273,15 @@ def send_invitation_email(
         </a>
     """
 
-    return send_email(
+    return _send(
         to=email,
+        brand=brand,
         subject=t(lang, "invitation.subject", org_name=safe_org_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "invitation.footer", inviter=safe_inviter),
+            brand=brand,
+            footer_note=t(lang, "invitation.footer", inviter=safe_inviter, brand=_names(brand)[0]),
         ),
     )
 
@@ -246,6 +292,7 @@ def send_role_changed_email(
     org_name: str,
     new_role_name: str,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     """
     Send an email notifying a user that their role has changed in an organization.
@@ -271,13 +318,15 @@ def send_role_changed_email(
         </p>
     """
 
-    return send_email(
+    return _send(
         to=email,
+        brand=brand,
         subject=t(lang, "role_changed.subject", org_name=safe_org_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "role_changed.footer", org_name=safe_org_name),
+            brand=brand,
+            footer_note=t(lang, "role_changed.footer", org_name=safe_org_name, brand=_names(brand)[0]),
         ),
     )
 
@@ -289,6 +338,7 @@ def send_email_verification_email(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
+    brand: Optional[EmailBrand] = None,
 ):
     """
     Send email verification email with verification link.
@@ -312,7 +362,8 @@ def send_email_verification_email(
     verification_url = f"{base_url}/verify-email?token={safe_token}&amp;user={safe_user_uuid}&amp;org={safe_org_uuid}"
 
     heading = t(lang, "email_verification.heading")
-    body_text = t(lang, "email_verification.body", username=safe_username)
+    name, plain_name = _names(brand)
+    body_text = t(lang, "email_verification.body", username=safe_username, brand=name)
     cta = t(lang, "email_verification.cta")
     copy_paste = t(lang, "email_verification.copy_paste")
 
@@ -329,12 +380,14 @@ def send_email_verification_email(
         </p>
     """
 
-    return send_email(
+    return _send(
         to=email,
-        subject=t(lang, "email_verification.subject"),
+        brand=brand,
+        subject=t(lang, "email_verification.subject", brand=plain_name),
         body=_email_layout(
             title=heading,
             body_content=body_content,
-            footer_note=t(lang, "email_verification.footer"),
+            brand=brand,
+            footer_note=t(lang, "email_verification.footer", brand=name),
         ),
     )
