@@ -2,15 +2,28 @@ import { Callout } from 'nextra/components'
 
 # Email Configuration
 
-LearnHouse supports two email providers for transactional email delivery: **Resend** and **SMTP**. Email is used for user invitations, password resets, and system notifications.
+LearnHouse can send email through three providers: **Resend**, **SMTP** or **hub**. Email is used for welcome messages, user invitations, password resets, and system notifications.
 
 ## Choosing a Provider
 
 No email is sent until you choose a provider. Set it in your `.env` file using the `LEARNHOUSE_EMAIL_PROVIDER` variable:
 
 ```env
-LEARNHOUSE_EMAIL_PROVIDER=resend   # or "smtp"
+LEARNHOUSE_EMAIL_PROVIDER=resend   # "resend", "smtp", "hub" or "none"
 ```
+
+| Value | What it needs | If something is missing |
+|---|---|---|
+| `none` (default) | Nothing | No email is sent. The API log says `No email provider configured; email not sent`. |
+| `resend` | `LEARNHOUSE_RESEND_API_KEY`, `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS` | Without the API key: `Email service not configured`. |
+| `smtp` | `LEARNHOUSE_SMTP_HOST`, `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS`, and a login if your server asks for one | Without the host: `Email service error`. |
+| `hub` | `LEARNHOUSE_EMAIL_HUB_URL`, `LEARNHOUSE_EMAIL_HUB_TOKEN` | Without either one: `Email service not configured`. |
+
+A failed welcome email never stops someone from signing up or signing in. It is only logged.
+
+<Callout type="warning">
+Resend used to be the default. If you set a Resend API key without `LEARNHOUSE_EMAIL_PROVIDER`, add `LEARNHOUSE_EMAIL_PROVIDER=resend` or your instance stops sending email.
+</Callout>
 
 ## Option 1: Resend
 
@@ -53,6 +66,18 @@ LEARNHOUSE_SYSTEM_EMAIL_ADDRESS=noreply@example.com
 | `LEARNHOUSE_SMTP_PASSWORD` | SMTP authentication password | -- |
 | `LEARNHOUSE_SMTP_USE_TLS` | Enable TLS encryption | `true` |
 
+## Option 3: Hub
+
+Use this when your hosting platform, such as Kuploy Cloud, sends email for you. The platform gives you the address and the token.
+
+```env
+LEARNHOUSE_EMAIL_PROVIDER=hub
+LEARNHOUSE_EMAIL_HUB_URL=https://email.example.com/send
+LEARNHOUSE_EMAIL_HUB_TOKEN=your-token
+```
+
+The platform chooses the sender address, so `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS` is not used.
+
 ## Applying Changes
 
 After updating your email configuration, restart your instance:
@@ -64,7 +89,7 @@ learnhouse start
 
 ## System Email Address
 
-The `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS` is the "from" address used for all outgoing emails. When using Resend, this address must belong to a domain that is verified in your Resend account. When using SMTP, ensure the address is permitted by your SMTP server.
+The `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS` is the "from" address used for emails sent with Resend or SMTP. When using Resend, this address must belong to a domain that is verified in your Resend account. When using SMTP, ensure the address is permitted by your SMTP server.
 
 <Callout type="info">
 If email is not configured, features like user invitations and password resets will not work. Users can still be created manually by an administrator.
@@ -74,6 +99,7 @@ If email is not configured, features like user invitations and password resets w
 
 LearnHouse sends the following types of email:
 
+- **Welcome messages** -- when an account is created
 - **User invitations** -- when an admin invites a user to join the platform or an organization
 - **Password resets** -- when a user requests a password reset
 - **System notifications** -- important system-level notifications

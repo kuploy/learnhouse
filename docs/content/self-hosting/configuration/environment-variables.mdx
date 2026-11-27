@@ -104,8 +104,10 @@ optional: the feature stays disabled or uses a runtime fallback when the variabl
 
 | Variable | Description | Type | Default / required | Used by |
 | --- | --- | --- | --- | --- |
-| `LEARNHOUSE_EMAIL_PROVIDER` | Outbound email provider. | enum: `resend`, `smtp`, `none` | `none` (no email is sent) | API, CLI |
+| `LEARNHOUSE_EMAIL_PROVIDER` | Outbound email provider. | enum: `resend`, `smtp`, `hub`, `none` | `none` (no email is sent) | API, CLI |
 | `LEARNHOUSE_RESEND_API_KEY` | Resend API key when `LEARNHOUSE_EMAIL_PROVIDER=resend`. | secret string | unset; required to send via Resend | API, CLI |
+| `LEARNHOUSE_EMAIL_HUB_URL` | Sending address when `LEARNHOUSE_EMAIL_PROVIDER=hub`. | URL | unset; required to send via hub | API |
+| `LEARNHOUSE_EMAIL_HUB_TOKEN` | Token when `LEARNHOUSE_EMAIL_PROVIDER=hub`. | secret string | unset; required to send via hub | API |
 | `LEARNHOUSE_SYSTEM_EMAIL_ADDRESS` | Sender address for system email. | email | unset; CLI setup can emit `noreply@{domain}` | API, CLI |
 | `LEARNHOUSE_SMTP_HOST` | SMTP server hostname when `LEARNHOUSE_EMAIL_PROVIDER=smtp`. | hostname | unset | API, CLI |
 | `LEARNHOUSE_SMTP_PORT` | SMTP server port. | integer | `587` | API, CLI |
