@@ -4,7 +4,6 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 from sqlmodel import select
 
@@ -19,10 +18,10 @@ logger = logging.getLogger(__name__)
 class EmailBrand:
     name: str
     home_url: str
-    logo_url: Optional[str] = None
+    logo_url: str | None = None
 
 
-async def get_email_brand(db_session, request, org=None) -> Optional[EmailBrand]:
+async def get_email_brand(db_session, request, org=None) -> EmailBrand | None:
     """
     The brand to put on an email, or None to keep the built-in one.
 

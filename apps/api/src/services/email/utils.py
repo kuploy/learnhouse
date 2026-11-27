@@ -219,7 +219,7 @@ def get_base_url_from_request(request: Request) -> str:
     return f"{request.url.scheme}://{request.url.netloc}"
 
 
-def send_email(to: EmailStr, subject: str, body: str, from_name: Optional[str] = None):
+def send_email(to: EmailStr, subject: str, body: str, from_name: str | None = None):
     from fastapi import HTTPException
 
     lh_config = get_learnhouse_config()

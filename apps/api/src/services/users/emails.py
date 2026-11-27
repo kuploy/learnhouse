@@ -38,7 +38,7 @@ STYLES = {
 }
 
 
-def _header_html(brand: Optional[EmailBrand]) -> str:
+def _header_html(brand: EmailBrand | None) -> str:
     """FORK (kuploy-learnhouse#37): the operator's logo or name, else the built-in mark."""
     if not brand:
         return LOGO_SVG
@@ -51,21 +51,21 @@ def _header_html(brand: Optional[EmailBrand]) -> str:
     return f'<span style="font-size: 18px; font-weight: 900; color: #000000;">{name}</span>'
 
 
-def _names(brand: Optional[EmailBrand]) -> tuple[str, str]:
+def _names(brand: EmailBrand | None) -> tuple[str, str]:
     """The platform name for the HTML body and for the subject line."""
     if not brand:
         return "LearnHouse", "LearnHouse"
     return html.escape(brand.name), brand.name
 
 
-def _send(to, subject: str, body: str, brand: Optional[EmailBrand]):
+def _send(to, subject: str, body: str, brand: EmailBrand | None):
     if not brand:
         return send_email(to=to, subject=subject, body=body)
     return send_email(to=to, subject=subject, body=body, from_name=sender_name(brand.name))
 
 
 def _email_layout(
-    title: str, body_content: str, footer_note: str = "", brand: Optional[EmailBrand] = None
+    title: str, body_content: str, footer_note: str = "", brand: EmailBrand | None = None
 ) -> str:
     """Wrap content in the standard email layout."""
     footer_html = ""
@@ -99,7 +99,7 @@ def send_account_creation_email(
     user: UserRead,
     email: EmailStr,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     safe_username = html.escape(user.username)
 
@@ -145,7 +145,7 @@ def send_password_reset_email(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     safe_username = html.escape(user.username)
     safe_code = html.escape(generated_reset_code)
@@ -190,7 +190,7 @@ def send_password_reset_email_platform(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     safe_username = html.escape(user.username)
     safe_code = html.escape(generated_reset_code)
@@ -236,7 +236,7 @@ def send_invitation_email(
     signup_url: str,
     invite_code: Optional[str] = None,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     safe_org_name = html.escape(org_name)
     safe_inviter = html.escape(inviter_username)
@@ -292,7 +292,7 @@ def send_role_changed_email(
     org_name: str,
     new_role_name: str,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     """
     Send an email notifying a user that their role has changed in an organization.
@@ -338,7 +338,7 @@ def send_email_verification_email(
     email: EmailStr,
     base_url: str,
     lang: str = "en",
-    brand: Optional[EmailBrand] = None,
+    brand: EmailBrand | None = None,
 ):
     """
     Send email verification email with verification link.
