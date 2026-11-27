@@ -17,7 +17,8 @@ from config.config import get_learnhouse_config
 from src.db.organization_config import OrganizationConfig
 from src.db.organizations import Organization, OrganizationRead
 from src.db.usergroups import UserGroup
-from src.db.users import AnonymousUser, PublicUser, UserRead
+from src.db.users import AnonymousUser, PublicUser, User, UserRead
+from src.services.email.brand import get_email_brand
 from src.services.orgs.orgs import get_org_default_language, rbac_check
 from src.services.users.emails import send_invitation_email
 
@@ -30,6 +31,41 @@ def _get_redis(redis_conn_string: str) -> redis.Redis:
     if _redis_pool is None:
         _redis_pool = redis.ConnectionPool.from_url(redis_conn_string, max_connections=10)
     return redis.Redis(connection_pool=_redis_pool)
+
+
+async def forget_invitations(
+    org_id: int, user_ids: list[int], db_session: AsyncSession
+) -> None:
+    """
+    Drop the email invitations of people being removed from an org.
+
+    An invitation outlives its acceptance, so without this it stays listed and
+    still counts at the next third-party sign-in. Never raises, so a Redis
+    problem cannot fail a removal.
+    """
+    # FORK (kuploy-learnhouse#39)
+    try:
+        redis_url = get_learnhouse_config().redis_config.redis_connection_string
+        if not redis_url or not user_ids:
+            return
+        org = (
+            await db_session.execute(select(Organization).where(Organization.id == org_id))
+        ).scalars().first()
+        emails = (
+            await db_session.execute(select(User.email).where(User.id.in_(user_ids)))
+        ).scalars().all()
+        if org is None or not emails:
+            return
+        removed = {email.lower() for email in emails}
+        r = _get_redis(redis_url)
+        suffix = f":org:{org.org_uuid}"
+        # Matched without case: the key holds the address as the admin typed it.
+        for key in r.scan_iter(match=f"invited_user:*{suffix}", count=100):
+            name = key.decode() if isinstance(key, bytes) else key
+            if name.removeprefix("invited_user:").removesuffix(suffix).lower() in removed:
+                r.delete(key)
+    except Exception:
+        logger.warning("Could not clear invitations in org %s", org_id, exc_info=True)
 
 
 # Lua script: atomically count existing org invite codes and add a new one if
@@ -398,6 +434,7 @@ async def send_invite_email(
             invite_code=invite_code,
             signup_url=signup_url,
             lang=lang,
+            brand=await get_email_brand(db_session, request, org),
         )
         return result is not None
     except Exception:

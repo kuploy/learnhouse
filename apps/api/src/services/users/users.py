@@ -13,6 +13,7 @@ from src.security.features_utils.usage import (
     increase_feature_usage,
 )
 from src.core.deployment_mode import get_deployment_mode
+from src.services.email.brand import get_email_brand
 from src.services.users.usergroups import add_users_to_usergroup
 from src.services.users.emails import (
     send_account_creation_email,
@@ -47,6 +48,16 @@ from src.services.security.password_validation import validate_password_complexi
 from src.services.analytics.analytics import track
 from src.services.analytics import events as analytics_events
 from src.services.webhooks.dispatch import dispatch_webhooks
+
+
+def _send_welcome_email(user: UserRead, lang: str = "en", brand=None) -> None:
+    """The account already exists by now, so a failed send must not fail the sign-up."""
+    try:
+        send_account_creation_email(user=user, email=user.email, lang=lang, brand=brand)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Failed to send welcome email to %s", user.user_uuid, exc_info=True
+        )
 
 
 async def create_user(
@@ -179,10 +190,10 @@ async def create_user(
     if is_oauth:
         org_config_stmt = select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
         org_config = (await db_session.execute(org_config_stmt)).scalars().first()
-        send_account_creation_email(
-            user=user_read,
-            email=user_read.email,
+        _send_welcome_email(
+            user_read,
             lang=get_org_default_language(org_config),
+            brand=await get_email_brand(db_session, request, result),
         )
     elif get_deployment_mode() == 'saas':
         # Import here to avoid circular imports
@@ -339,10 +350,7 @@ async def create_user_without_org(
     # OAuth users get welcome email (already verified)
     # Non-OAuth SaaS users get verification email (no org needed)
     if is_oauth or get_deployment_mode() != 'saas':
-        send_account_creation_email(
-            user=user_read,
-            email=user_read.email,
-        )
+        _send_welcome_email(user_read, brand=await get_email_brand(db_session, request))
     else:
         from src.services.users.email_verification import send_verification_email
         await send_verification_email(request, db_session, user, org_id=None)
@@ -702,6 +710,13 @@ async def delete_user_by_id(
     await rbac_check(request, current_user, "delete", user.user_uuid, db_session)
 
     from src.routers.users import _invalidate_session_cache
+    from src.services.orgs.invites import forget_invitations
+
+    # FORK (kuploy-learnhouse#39): now, while the address can still be read.
+    for member_org_id in (await db_session.execute(
+        select(UserOrganization.org_id).where(UserOrganization.user_id == user_id)
+    )).scalars().all():
+        await forget_invitations(member_org_id, [user_id], db_session)
 
     # Delete organizations the user is the SOLE admin of, so we don't leave
     # behind orphaned, admin-less organizations when an account goes away.

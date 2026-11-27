@@ -27,17 +27,19 @@ import * as Popover from '@radix-ui/react-popover'
 import { cn } from '@/lib/utils'
 import type { Editor } from '@tiptap/core'
 import ToolTip from '@components/Objects/StyledElements/Tooltip/Tooltip'
+import BrandMark from '@components/Objects/BrandMark'
 
 type ToolMode = 'select' | 'pan' | 'draw' | 'card' | 'youtube' | 'playground' | 'activity' | 'embed' | 'webpage' | 'sticker' | 'frame' | 'note' | 'todo' | 'podcast'
 
 interface BoardToolbarProps {
   toolMode: ToolMode
-  onToolModeChange: (mode: ToolMode) => void
+  onToolModeChange: (_mode: ToolMode) => void
   editor: Editor
   drawColor: string
   drawWidth: number
-  onDrawColorChange: (color: string) => void
-  onDrawWidthChange: (width: number) => void
+  onDrawColorChange: (_color: string) => void
+  onDrawWidthChange: (_width: number) => void
+  orgslug: string
 }
 
 const DRAW_COLORS = [
@@ -69,6 +71,7 @@ const tools = [
 ]
 
 export default function BoardToolbar({
+  orgslug,
   toolMode,
   onToolModeChange,
   editor,
@@ -92,13 +95,15 @@ export default function BoardToolbar({
       {/* Logo */}
       <Link href="/dash/boards">
         <div className="bg-black rounded-md w-[25px] h-[25px] flex items-center justify-center hover:opacity-80 transition-opacity">
-          <Image
-            src="/lrn.svg"
-            alt="LearnHouse"
-            width={14}
-            height={14}
-            className="invert"
-          />
+          <BrandMark orgslug={orgslug} className="h-[19px] w-[19px] bg-white">
+            <Image
+              src="/lrn.svg"
+              alt="LearnHouse"
+              width={14}
+              height={14}
+              className="invert"
+            />
+          </BrandMark>
         </div>
       </Link>
 

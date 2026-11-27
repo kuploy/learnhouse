@@ -24,7 +24,8 @@ from src.security.auth import resolve_acting_user_id
 from src.security.features_utils.usage import decrease_feature_usage
 from src.security.org_auth import is_org_member
 from src.security.rbac.constants import ADMIN_ROLE_ID
-from src.services.orgs.invites import send_invite_email
+from src.services.email.brand import get_email_brand
+from src.services.orgs.invites import forget_invitations, send_invite_email
 from src.services.orgs.orgs import get_org_default_language, rbac_check
 from src.services.search.normalization import LIKE_ESCAPE_CHAR, build_like_pattern
 from src.services.users.emails import send_role_changed_email
@@ -469,6 +470,7 @@ async def remove_user_from_org(
 
     from src.routers.users import _invalidate_session_cache
     _invalidate_session_cache(user_id)
+    await forget_invitations(org_id, [user_id], db_session)
 
     await decrease_feature_usage("members", org_id, db_session)
 
@@ -525,6 +527,7 @@ async def remove_batch_users_from_org(
         user_orgs_to_remove = []
 
     removed_count = len(user_orgs_to_remove)
+    removed_user_ids = [uo.user_id for uo in user_orgs_to_remove]
     for user_org in user_orgs_to_remove:
         await db_session.delete(user_org)
 
@@ -533,6 +536,7 @@ async def remove_batch_users_from_org(
     from src.routers.users import _invalidate_session_cache
     for uid in user_ids:
         _invalidate_session_cache(uid)
+    await forget_invitations(org_id, removed_user_ids, db_session)
 
     for _ in range(removed_count):
         await decrease_feature_usage("members", org_id, db_session)
@@ -583,6 +587,7 @@ async def remove_all_users_from_org(
     from src.routers.users import _invalidate_session_cache
     for uid in removed_user_ids:
         _invalidate_session_cache(uid)
+    await forget_invitations(org_id, removed_user_ids, db_session)
 
     for _ in removed_user_ids:
         await decrease_feature_usage("members", org_id, db_session)
@@ -688,6 +693,7 @@ async def update_user_role(
                 org_name=org.name,
                 new_role_name=role.name,
                 lang=get_org_default_language(org_config),
+                brand=await get_email_brand(db_session, request, org),
             )
     except Exception:
         logger.warning("Failed to send role change email to user %s", user_id)

@@ -1,13 +1,18 @@
 """Tests for src/services/email/utils.py."""
 
 import smtplib
+from email import message_from_string
+from email.mime.multipart import MIMEMultipart
+from email.policy import default
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import yaml
 from fastapi import HTTPException
 from starlette.requests import Request
 
+from config.config import get_learnhouse_config
 from src.services.email.utils import (
     _is_allowed_base_url,
     get_base_url_from_request,
@@ -30,6 +35,7 @@ def _config(**overrides):
         development_mode=overrides.pop("development_mode", False),
     )
     mailing = SimpleNamespace(
+        # A convenience for these tests, not the system default (that is "none").
         email_provider=overrides.pop("email_provider", "resend"),
         system_email_address=overrides.pop("system_email_address", "system@test.com"),
         resend_api_key=overrides.pop("resend_api_key", "resend-test-key"),
@@ -279,6 +285,43 @@ class TestEmailUtilsService:
             "Rejected untrusted Referer header for email URL: %s",
             "https://blocked.test",
         )
+
+    def test_send_email_without_a_provider_sends_nothing(self):
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(email_provider="none"),
+        ), patch("src.services.email.utils.resend.Emails.send") as mock_send:
+            assert send_email("to@test.com", "Hello", "<p>Body</p>") is None
+        mock_send.assert_not_called()
+
+    def test_send_email_resend_without_a_key_says_not_configured(self):
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(email_provider="resend", resend_api_key=None),
+        ), patch(
+            "src.services.email.utils.resend.Emails.send"
+        ) as mock_send, pytest.raises(HTTPException) as exc_info:
+            send_email("to@test.com", "Hello", "<p>Body</p>")
+        assert exc_info.value.detail == "Email service not configured"
+        mock_send.assert_not_called()
+
+    @pytest.mark.parametrize("keep_yaml_setting", [True, False])
+    def test_no_provider_is_the_default(self, monkeypatch, keep_yaml_setting):
+        # True reads the shipped config.yaml; False drops its setting, so the
+        # default written in config.py is what answers.
+        monkeypatch.delenv("LEARNHOUSE_EMAIL_PROVIDER", raising=False)
+        real_load = yaml.safe_load
+
+        def load(stream):
+            data = real_load(stream)
+            if not keep_yaml_setting:
+                data["mailing_config"].pop("email_provider")
+            return data
+
+        with patch("config.config.load_dotenv"), patch(
+            "config.config.yaml.safe_load", side_effect=load
+        ):
+            assert get_learnhouse_config().mailing_config.email_provider == "none"
 
     def test_send_email_routes_to_resend_and_smtp(self):
         with patch(
@@ -554,3 +597,19 @@ class TestGetPrimaryVerifiedCustomDomain:
 
         result = await _get_primary_verified_custom_domain(bad_session, org_id=1)
         assert result is None
+
+
+def test_smtp_from_stays_readable_with_a_non_ascii_name():
+    """FORK (kuploy-learnhouse#37): an accented org name must not eat the address."""
+    mailing = SimpleNamespace(email_provider="smtp", system_email_address="system@test.com")
+    with patch(
+        "src.services.email.utils.get_learnhouse_config",
+        return_value=SimpleNamespace(mailing_config=mailing),
+    ), patch("src.services.email.utils._send_email_smtp") as smtp:
+        send_email("a@test.com", "s", "b", from_name="Académie Évry (Pro)")
+
+    msg = MIMEMultipart()
+    msg["From"] = smtp.call_args.args[0]
+    parsed = message_from_string(msg.as_string(), policy=default)["From"].addresses[0]
+    assert parsed.addr_spec == "system@test.com"
+    assert parsed.display_name == "Académie Évry (Pro)"

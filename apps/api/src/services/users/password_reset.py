@@ -10,6 +10,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.db.organization_config import OrganizationConfig
 from src.db.organizations import Organization, OrganizationRead
+from src.services.email.brand import get_email_brand
 from src.services.orgs.orgs import get_org_default_language
 from src.security.security import security_hash_password
 from config.config import get_learnhouse_config
@@ -171,6 +172,7 @@ async def send_reset_password_code(
         email=user_read.email,
         base_url=base_url,
         lang=get_org_default_language(org_config),
+        brand=await get_email_brand(db_session, request, org),
     )
 
     if not isEmailSent:
@@ -352,6 +354,7 @@ async def send_reset_password_code_platform(
         user=user_read,
         email=user_read.email,
         base_url=base_url,
+        brand=await get_email_brand(db_session, request),
     )
 
     if not isEmailSent:

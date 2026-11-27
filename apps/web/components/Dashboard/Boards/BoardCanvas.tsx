@@ -862,6 +862,7 @@ function BoardEditorInner({
 
       {/* Bottom toolbar: logo, tools, undo/redo */}
       <BoardToolbar
+        orgslug={orgslug}
         toolMode={toolMode}
         onToolModeChange={setToolMode}
         editor={editor}

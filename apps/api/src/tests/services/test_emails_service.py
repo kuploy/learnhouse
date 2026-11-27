@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from src.db.organizations import OrganizationRead
 from src.db.users import UserRead
+from src.services.email.brand import EmailBrand, get_email_brand
+from src.services.email.translations import EMAIL_TRANSLATIONS
 from src.services.users.emails import (
     send_account_creation_email,
     send_email_verification_email,
@@ -164,3 +166,46 @@ class TestEmailsService:
             )
         body = send_email.call_args.kwargs["body"]
         assert "You've been invited" in body
+
+
+# FORK (kuploy-learnhouse#37): operator branding on outgoing email.
+class TestOperatorBranding:
+    brand = EmailBrand(
+        name="Acme <Academy>",
+        home_url="https://learn.example.com",
+        logo_url="https://learn.example.com/content/orgs/org_1/logos/logo.png",
+    )
+
+    def test_branded_emails_never_name_the_platform(self):
+        with patch("src.services.users.emails.send_email", return_value={"ok": True}) as send:
+            send_account_creation_email(_user(), "user@test.com", brand=self.brand)
+            send_invitation_email("a@test.com", "Acme", "admin", "https://x/signup", brand=self.brand)
+            send_role_changed_email("a@test.com", "bob", "Acme", "Admin", brand=self.brand)
+            send_password_reset_email_platform("CODE", _user(), "a@test.com", "https://x", brand=self.brand)
+        for call in send.call_args_list:
+            sent = call.kwargs["subject"] + call.kwargs["body"]
+            assert "LearnHouse" not in sent and "learnhouse.io" not in sent
+            assert "Acme &lt;Academy&gt;" in call.kwargs["body"]
+            assert self.brand.logo_url in call.kwargs["body"]
+            assert call.kwargs["from_name"] == "Acme Academy"
+
+    def test_no_platform_name_left_in_any_language(self):
+        for lang, bundle in EMAIL_TRANSLATIONS.items():
+            assert "account_creation.body_org" in bundle, lang
+            for key, text in bundle.items():
+                if key != "academy_link_text":
+                    assert "LearnHouse" not in text, (lang, key)
+
+    async def test_brand_comes_from_the_only_organization(self, db, org, mock_request, monkeypatch):
+        monkeypatch.setenv("NEXT_PUBLIC_LEARNHOUSE_MEDIA_URL", "https://media.example.com/")
+        org.logo_image = "logo.png"
+        db.add(org)
+        await db.commit()
+        with patch("src.services.email.brand.get_deployment_mode", return_value="oss"), patch(
+            "src.services.email.brand.get_base_url_from_request", return_value="https://learn.example.com"
+        ):
+            brand = await get_email_brand(db, mock_request)
+        assert brand.name == org.name
+        assert brand.logo_url == f"https://media.example.com/content/orgs/{org.org_uuid}/logos/logo.png"
+        with patch("src.services.email.brand.get_deployment_mode", return_value="saas"):
+            assert await get_email_brand(db, mock_request) is None

@@ -3,6 +3,7 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -219,12 +220,12 @@ def get_base_url_from_request(request: Request) -> str:
     return f"{request.url.scheme}://{request.url.netloc}"
 
 
-def send_email(to: EmailStr, subject: str, body: str):
+def send_email(to: EmailStr, subject: str, body: str, from_name: str | None = None):
     from fastapi import HTTPException
 
     lh_config = get_learnhouse_config()
     mailing = lh_config.mailing_config
-    sender = f"LearnHouse <{mailing.system_email_address}>"
+    sender = f"{from_name or 'LearnHouse'} <{mailing.system_email_address}>"
 
     # Resend (and most providers) require a plain `email@example.com` string.
     # Pydantic's EmailStr is a str subclass, but third-party JSON serializers
@@ -239,13 +240,25 @@ def send_email(to: EmailStr, subject: str, body: str):
     if mailing.email_provider == "hub":
         return _send_email_hub(to_addr, subject, body, mailing)
     elif mailing.email_provider == "smtp":
-        return _send_email_smtp(sender, to_addr, subject, body, mailing)
-    else:
+        # formataddr encodes a non-ASCII name on its own; a plain header string
+        # would get encoded whole, address included.
+        header = formataddr((from_name or "LearnHouse", str(mailing.system_email_address)))
+        return _send_email_smtp(header, to_addr, subject, body, mailing)
+    elif mailing.email_provider == "resend":
         return _send_email_resend(sender, to_addr, subject, body, mailing)
+    else:
+        # None, so callers that check the result report that nothing was sent.
+        logger.warning("No email provider configured; email not sent")
+        return None
 
 
 def _send_email_resend(sender: str, to: str, subject: str, body: str, mailing):
     from fastapi import HTTPException
+
+    if not mailing.resend_api_key:
+        logger.error("Resend email provider selected but resend_api_key unset")
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
     resend.api_key = mailing.resend_api_key
     try:
         return resend.Emails.send({
