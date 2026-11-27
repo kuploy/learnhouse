@@ -436,6 +436,27 @@ class TestOrgUsersService:
                 await remove_all_users_from_org(mock_request, org.id, db, admin_user)
 
         fake.delete.assert_called_once_with(theirs.encode())
+        assert fake.scan_iter.call_args.kwargs["match"] == f"invited_user:*:org:{org.org_uuid}"
+
+    @pytest.mark.asyncio
+    async def test_removal_succeeds_when_invitations_cannot_be_read(
+        self, mock_request, db, org, admin_user, regular_user
+    ):
+        with patch(
+            "src.services.orgs.users.rbac_check", new_callable=AsyncMock
+        ), patch("src.routers.users._invalidate_session_cache"), patch(
+            "src.services.orgs.users.decrease_feature_usage"
+        ), patch(
+            "src.services.orgs.users.dispatch_webhooks", new_callable=AsyncMock
+        ), patch(
+            "src.services.orgs.invites.get_learnhouse_config",
+            side_effect=RuntimeError("no redis"),
+        ):
+            result = await remove_user_from_org(
+                mock_request, org.id, regular_user.id, db, admin_user
+            )
+
+        assert result == {"detail": "User removed from org"}
 
     @pytest.mark.asyncio
     async def test_update_user_role_guard_paths_and_email_failure(

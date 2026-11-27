@@ -2318,6 +2318,12 @@ async def anonymize_user(
     placeholder_email = f"deleted-user-{user_id}@anonymized.local"
     placeholder_username = f"deleted_user_{user_id}"
 
+    # FORK (kuploy-learnhouse#39): now, before the address is scrubbed.
+    for member_org_id in (await db_session.execute(
+        select(UserOrganization.org_id).where(UserOrganization.user_id == user_id)
+    )).scalars().all():
+        await forget_invitations(member_org_id, [user_id], db_session)
+
     existing_tokens = (await db_session.execute(
         select(APIToken).where(
             APIToken.created_by_user_id == user_id,

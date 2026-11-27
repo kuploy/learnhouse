@@ -172,8 +172,19 @@ class TestDeleteUserById:
         db.add(uo)
         await db.commit()
 
-        result = await delete_user_by_id(mock_request, db, admin_user, 10)
+        seen = []
+
+        async def forget(org_id, user_ids, db_session):
+            email = (
+                await db_session.exec(select(User.email).where(User.id == 10))
+            ).first()
+            seen.append((org_id, user_ids, email))
+
+        with patch("src.services.orgs.invites.forget_invitations", forget):
+            result = await delete_user_by_id(mock_request, db, admin_user, 10)
         assert result == {"detail": "User deleted successfully"}
+        # Cleared while the address could still be read.
+        assert seen == [(org.id, [10], "deleteme@test.com")]
 
         # Verify the user no longer exists
         assert (await db.exec(select(User).where(User.id == 10))).first() is None

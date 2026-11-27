@@ -635,3 +635,21 @@ async def test_remove_user_from_org_clears_invitations(db, org, admin_role, user
         await remove_user_from_org_admin(token_user, member.id, db)
 
     forget.assert_awaited_once_with(org.id, [member.id], db)
+
+
+@pytest.mark.asyncio
+async def test_anonymize_user_clears_invitations_before_scrubbing_email(db, org, user_role):
+    token_user = _make_token_user(org.id)
+    member = await _create_user(db, user_id=72, username="reg72", email="reg72@test.com")
+    await _add_user_to_org(db, member, org, role_id=user_role.id)
+    seen = []
+
+    async def forget(org_id, user_ids, db_session):
+        seen.append((org_id, user_ids, member.email))
+
+    with patch("src.services.admin.admin.forget_invitations", forget), patch(
+        "src.routers.users._invalidate_session_cache"
+    ):
+        await anonymize_user(token_user, member.id, db)
+
+    assert seen == [(org.id, [72], "reg72@test.com")]

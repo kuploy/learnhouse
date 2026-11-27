@@ -705,6 +705,13 @@ async def delete_user_by_id(
     await rbac_check(request, current_user, "delete", user.user_uuid, db_session)
 
     from src.routers.users import _invalidate_session_cache
+    from src.services.orgs.invites import forget_invitations
+
+    # FORK (kuploy-learnhouse#39): now, while the address can still be read.
+    for member_org_id in (await db_session.execute(
+        select(UserOrganization.org_id).where(UserOrganization.user_id == user_id)
+    )).scalars().all():
+        await forget_invitations(member_org_id, [user_id], db_session)
 
     # Delete organizations the user is the SOLE admin of, so we don't leave
     # behind orphaned, admin-less organizations when an account goes away.

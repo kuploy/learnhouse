@@ -36,11 +36,11 @@ async def forget_invitations(
     org_id: int, user_ids: list[int], db_session: AsyncSession
 ) -> None:
     """
-    Drop the email invitations of people who were just removed from an org.
+    Drop the email invitations of people being removed from an org.
 
     An invitation outlives its acceptance, so without this it stays listed and
-    still counts at the next third-party sign-in. Never raises: the removal has
-    already happened.
+    still counts at the next third-party sign-in. Never raises, so a Redis
+    problem cannot fail a removal.
     """
     # FORK (kuploy-learnhouse#39)
     try:
