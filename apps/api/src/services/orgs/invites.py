@@ -18,6 +18,7 @@ from src.db.organization_config import OrganizationConfig
 from src.db.organizations import Organization, OrganizationRead
 from src.db.usergroups import UserGroup
 from src.db.users import AnonymousUser, PublicUser, User, UserRead
+from src.services.email.brand import get_email_brand
 from src.services.orgs.orgs import get_org_default_language, rbac_check
 from src.services.users.emails import send_invitation_email
 
@@ -433,6 +434,7 @@ async def send_invite_email(
             invite_code=invite_code,
             signup_url=signup_url,
             lang=lang,
+            brand=await get_email_brand(db_session, request, org),
         )
         return result is not None
     except Exception:

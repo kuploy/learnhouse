@@ -25,6 +25,7 @@ import { useOrgMembership } from '@components/Contexts/OrgContext'
 import { isFeatureAvailable } from '@services/plans/plans'
 import { normalizeForSearch } from '@/lib/search/normalize'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
+import BrandMark from '@components/Objects/BrandMark'
 
 const CONTENT_TYPE_ICON: Record<ContentResultType, SearchMeta['icon']> = {
   course: BookOpen,
@@ -250,13 +251,15 @@ export default function CommandPalette() {
                   className="w-full bg-transparent text-[18px] sm:text-[22px] font-medium leading-tight tracking-tight text-white outline-none placeholder:font-medium placeholder:text-white/35"
                 />
               </div>
-              <img
-                src="/lrn-dash.svg"
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 select-none opacity-90"
-              />
+              <BrandMark className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+                <img
+                  src="/lrn-dash.svg"
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 select-none opacity-90"
+                />
+              </BrandMark>
             </div>
 
             {/* Divider */}

@@ -17,6 +17,7 @@ from src.db.organization_config import OrganizationConfig
 from src.db.organizations import Organization, OrganizationRead
 from src.db.users import User, UserRead
 from config.config import get_learnhouse_config
+from src.services.email.brand import get_email_brand
 from src.services.orgs.orgs import get_org_default_language
 from src.services.users.emails import send_email_verification_email
 from src.services.email.utils import (
@@ -154,6 +155,7 @@ async def send_verification_email(
         email=user.email,
         base_url=base_url,
         lang=lang,
+        brand=await get_email_brand(db_session, request, org_read),
     )
 
     if not email_sent:

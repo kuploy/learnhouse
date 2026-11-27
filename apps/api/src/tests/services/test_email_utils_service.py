@@ -1,6 +1,9 @@
 """Tests for src/services/email/utils.py."""
 
 import smtplib
+from email import message_from_string
+from email.mime.multipart import MIMEMultipart
+from email.policy import default
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -594,3 +597,19 @@ class TestGetPrimaryVerifiedCustomDomain:
 
         result = await _get_primary_verified_custom_domain(bad_session, org_id=1)
         assert result is None
+
+
+def test_smtp_from_stays_readable_with_a_non_ascii_name():
+    """FORK (kuploy-learnhouse#37): an accented org name must not eat the address."""
+    mailing = SimpleNamespace(email_provider="smtp", system_email_address="system@test.com")
+    with patch(
+        "src.services.email.utils.get_learnhouse_config",
+        return_value=SimpleNamespace(mailing_config=mailing),
+    ), patch("src.services.email.utils._send_email_smtp") as smtp:
+        send_email("a@test.com", "s", "b", from_name="Académie Évry (Pro)")
+
+    msg = MIMEMultipart()
+    msg["From"] = smtp.call_args.args[0]
+    parsed = message_from_string(msg.as_string(), policy=default)["From"].addresses[0]
+    assert parsed.addr_spec == "system@test.com"
+    assert parsed.display_name == "Académie Évry (Pro)"

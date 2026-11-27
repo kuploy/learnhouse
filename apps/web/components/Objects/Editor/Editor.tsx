@@ -72,6 +72,7 @@ import { useOrg } from '@components/Contexts/OrgContext'
 const VersionHistoryPanel = dynamic(() => import('./VersionHistory/VersionHistoryPanel'), { ssr: false, loading: () => null })
 const MergeConflictModal = dynamic(() => import('./VersionHistory/MergeConflictModal'), { ssr: false, loading: () => null })
 import { usePlan } from '@components/Hooks/usePlan'
+import BrandMark from '@components/Objects/BrandMark'
 import {
   createBeforeUnloadHandler,
   getEditorContentSnapshot,
@@ -693,13 +694,15 @@ const EditorLearnHouseLogo = () => {
         animate={animation.animate}
         transition={animation.transition}
       >
-        <Image
-          src="/lrn.svg"
-          alt="LearnHouse"
-          width={14}
-          height={14}
-          className="invert"
-        />
+        <BrandMark className="h-[19px] w-[19px] bg-white">
+          <Image
+            src="/lrn.svg"
+            alt="LearnHouse"
+            width={14}
+            height={14}
+            className="invert"
+          />
+        </BrandMark>
       </motion.div>
     </div>
   )

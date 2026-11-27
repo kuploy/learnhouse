@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { CourseContext, CourseDispatchContext } from '@components/Contexts/CourseContext'
 import { useActivity } from '@/hooks/queries/useActivity'
 import { useCourseMeta } from '@/hooks/queries/useCourses'
+import BrandMark from '@components/Objects/BrandMark'
 
 const Canva = lazy(() => import('@components/Objects/Activities/DynamicCanva/DynamicCanva'))
 const VideoActivity = lazy(() => import('@components/Objects/Activities/Video/Video'))
@@ -167,13 +168,15 @@ function EmbedActivityClient({ activityId, courseuuid, orgslug, bgcolor }: Embed
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-8">
         <div className="bg-white rounded-2xl nice-shadow p-8 max-w-md w-full text-center">
           <div className="mb-6">
-            <Image
-              src="/learnhouse_bigicon.png"
-              alt="LearnHouse"
-              width={64}
-              height={64}
-              className="mx-auto"
-            />
+            <BrandMark className="h-16 w-16 mx-auto">
+              <Image
+                src="/learnhouse_bigicon.png"
+                alt="LearnHouse"
+                width={64}
+                height={64}
+                className="mx-auto"
+              />
+            </BrandMark>
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">
             {t('embed.not_supported_title')}
@@ -276,12 +279,14 @@ function PoweredByBadge({ activityUrl }: { activityUrl: string }) {
         onClick={handleClick}
         className="bg-white/80 backdrop-blur-lg rounded-2xl p-2 light-shadow block cursor-pointer"
       >
-        <Image
-          src="/lrn.svg"
-          alt="LearnHouse"
-          width={20}
-          height={20}
-        />
+        <BrandMark className="h-5 w-5">
+          <Image
+            src="/lrn.svg"
+            alt="LearnHouse"
+            width={20}
+            height={20}
+          />
+        </BrandMark>
       </button>
     </div>
   )

@@ -13,6 +13,7 @@ from src.security.features_utils.usage import (
     increase_feature_usage,
 )
 from src.core.deployment_mode import get_deployment_mode
+from src.services.email.brand import get_email_brand
 from src.services.users.usergroups import add_users_to_usergroup
 from src.services.users.emails import (
     send_account_creation_email,
@@ -49,10 +50,10 @@ from src.services.analytics import events as analytics_events
 from src.services.webhooks.dispatch import dispatch_webhooks
 
 
-def _send_welcome_email(user: UserRead, lang: str = "en") -> None:
+def _send_welcome_email(user: UserRead, lang: str = "en", brand=None) -> None:
     """The account already exists by now, so a failed send must not fail the sign-up."""
     try:
-        send_account_creation_email(user=user, email=user.email, lang=lang)
+        send_account_creation_email(user=user, email=user.email, lang=lang, brand=brand)
     except Exception:
         logging.getLogger(__name__).warning(
             "Failed to send welcome email to %s", user.user_uuid, exc_info=True
@@ -189,7 +190,11 @@ async def create_user(
     if is_oauth:
         org_config_stmt = select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
         org_config = (await db_session.execute(org_config_stmt)).scalars().first()
-        _send_welcome_email(user_read, lang=get_org_default_language(org_config))
+        _send_welcome_email(
+            user_read,
+            lang=get_org_default_language(org_config),
+            brand=await get_email_brand(db_session, request, result),
+        )
     elif get_deployment_mode() == 'saas':
         # Import here to avoid circular imports
         from src.services.users.email_verification import send_verification_email
@@ -345,7 +350,7 @@ async def create_user_without_org(
     # OAuth users get welcome email (already verified)
     # Non-OAuth SaaS users get verification email (no org needed)
     if is_oauth or get_deployment_mode() != 'saas':
-        _send_welcome_email(user_read)
+        _send_welcome_email(user_read, brand=await get_email_brand(db_session, request))
     else:
         from src.services.users.email_verification import send_verification_email
         await send_verification_email(request, db_session, user, org_id=None)
