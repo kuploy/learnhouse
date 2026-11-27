@@ -5,9 +5,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+import yaml
 from fastapi import HTTPException
 from starlette.requests import Request
 
+from config.config import get_learnhouse_config
 from src.services.email.utils import (
     _is_allowed_base_url,
     get_base_url_from_request,
@@ -30,6 +32,7 @@ def _config(**overrides):
         development_mode=overrides.pop("development_mode", False),
     )
     mailing = SimpleNamespace(
+        # A convenience for these tests, not the system default (that is "none").
         email_provider=overrides.pop("email_provider", "resend"),
         system_email_address=overrides.pop("system_email_address", "system@test.com"),
         resend_api_key=overrides.pop("resend_api_key", "resend-test-key"),
@@ -292,11 +295,30 @@ class TestEmailUtilsService:
         with patch(
             "src.services.email.utils.get_learnhouse_config",
             return_value=_config(email_provider="resend", resend_api_key=None),
-        ), patch("src.services.email.utils.resend.Emails.send") as mock_send:
-            with pytest.raises(HTTPException) as exc_info:
-                send_email("to@test.com", "Hello", "<p>Body</p>")
+        ), patch(
+            "src.services.email.utils.resend.Emails.send"
+        ) as mock_send, pytest.raises(HTTPException) as exc_info:
+            send_email("to@test.com", "Hello", "<p>Body</p>")
         assert exc_info.value.detail == "Email service not configured"
         mock_send.assert_not_called()
+
+    @pytest.mark.parametrize("keep_yaml_setting", [True, False])
+    def test_no_provider_is_the_default(self, monkeypatch, keep_yaml_setting):
+        # True reads the shipped config.yaml; False drops its setting, so the
+        # default written in config.py is what answers.
+        monkeypatch.delenv("LEARNHOUSE_EMAIL_PROVIDER", raising=False)
+        real_load = yaml.safe_load
+
+        def load(stream):
+            data = real_load(stream)
+            if not keep_yaml_setting:
+                data["mailing_config"].pop("email_provider")
+            return data
+
+        with patch("config.config.load_dotenv"), patch(
+            "config.config.yaml.safe_load", side_effect=load
+        ):
+            assert get_learnhouse_config().mailing_config.email_provider == "none"
 
     def test_send_email_routes_to_resend_and_smtp(self):
         with patch(
