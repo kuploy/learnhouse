@@ -42,6 +42,7 @@ from src.services.email.utils import get_base_url_from_request
 from src.services.analytics.analytics import track
 from src.services.analytics import events as analytics_events
 from src.services.webhooks.dispatch import dispatch_webhooks
+from src.services.orgs.invites import forget_invitations
 from src.security.auth import create_access_token, create_refresh_token
 from src.security.features_utils.plan_check import get_org_plan
 from src.security.features_utils.plans import plan_meets_requirement
@@ -1153,6 +1154,8 @@ async def remove_user_from_org_admin(
         _invalidate_session_cache(user_id)
     except Exception:
         pass
+
+    await forget_invitations(token_user.org_id, [user_id], db_session)
 
     try:
         await decrease_feature_usage("members", token_user.org_id, db_session)

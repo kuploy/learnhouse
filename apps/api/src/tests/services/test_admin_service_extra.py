@@ -617,3 +617,21 @@ async def test_bulk_unenroll_users_enrolled_user_with_steps_deleted(db, org, cou
     assert user.id not in result["not_enrolled"]
     remaining = (await db.execute(sql_select(TrailStep).where(TrailStep.id == step_id))).scalars().first()
     assert remaining is None
+
+
+@pytest.mark.asyncio
+async def test_remove_user_from_org_clears_invitations(db, org, admin_role, user_role):
+    token_user = _make_token_user(org.id)
+    admin = await _create_user(db, user_id=70, username="admin70", email="admin70@test.com")
+    await _add_user_to_org(db, admin, org, role_id=admin_role.id)
+    member = await _create_user(db, user_id=71, username="reg71", email="reg71@test.com")
+    await _add_user_to_org(db, member, org, role_id=user_role.id)
+
+    with patch("src.services.admin.admin.dispatch_webhooks", new_callable=AsyncMock), patch(
+        "src.services.admin.admin.decrease_feature_usage"
+    ), patch(
+        "src.services.admin.admin.forget_invitations", new_callable=AsyncMock
+    ) as forget:
+        await remove_user_from_org_admin(token_user, member.id, db)
+
+    forget.assert_awaited_once_with(org.id, [member.id], db)

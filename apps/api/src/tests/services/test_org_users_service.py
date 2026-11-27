@@ -404,6 +404,39 @@ class TestOrgUsersService:
         assert admin_user.id in remaining_ids
         assert regular_user.id not in remaining_ids
 
+    @pytest.mark.parametrize("how", ["one", "batch", "all"])
+    @pytest.mark.asyncio
+    async def test_removal_clears_that_persons_invitation(
+        self, mock_request, db, org, admin_user, regular_user, how
+    ):
+        # The key holds the address as typed, so case differs from the account's.
+        theirs = f"invited_user:{regular_user.email.upper()}:org:{org.org_uuid}"
+        other = f"invited_user:someone@test.com:org:{org.org_uuid}"
+        fake = Mock(scan_iter=Mock(return_value=[theirs.encode(), other.encode()]))
+
+        with patch(
+            "src.services.orgs.users.rbac_check", new_callable=AsyncMock
+        ), patch("src.routers.users._invalidate_session_cache"), patch(
+            "src.services.orgs.users.decrease_feature_usage"
+        ), patch(
+            "src.services.orgs.users.dispatch_webhooks", new_callable=AsyncMock
+        ), patch(
+            "src.services.orgs.invites.get_learnhouse_config",
+            return_value=SimpleNamespace(
+                redis_config=SimpleNamespace(redis_connection_string="redis://test")
+            ),
+        ), patch("src.services.orgs.invites._get_redis", return_value=fake):
+            if how == "one":
+                await remove_user_from_org(mock_request, org.id, regular_user.id, db, admin_user)
+            elif how == "batch":
+                await remove_batch_users_from_org(
+                    mock_request, org.id, [regular_user.id], db, admin_user
+                )
+            else:
+                await remove_all_users_from_org(mock_request, org.id, db, admin_user)
+
+        fake.delete.assert_called_once_with(theirs.encode())
+
     @pytest.mark.asyncio
     async def test_update_user_role_guard_paths_and_email_failure(
         self, mock_request, db, org, other_org, admin_user, regular_user
