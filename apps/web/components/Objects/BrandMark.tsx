@@ -39,7 +39,7 @@ export default function BrandMark({
     <img
       src={getOrgLogoMediaDirectory(org.org_uuid, org.logo_image)}
       alt={org.name}
-      className={cn('object-contain rounded', className)}
+      className={cn('object-contain rounded bg-white', className)}
     />
   )
 }

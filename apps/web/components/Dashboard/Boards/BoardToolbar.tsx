@@ -33,12 +33,12 @@ type ToolMode = 'select' | 'pan' | 'draw' | 'card' | 'youtube' | 'playground' | 
 
 interface BoardToolbarProps {
   toolMode: ToolMode
-  onToolModeChange: (mode: ToolMode) => void
+  onToolModeChange: (_mode: ToolMode) => void
   editor: Editor
   drawColor: string
   drawWidth: number
-  onDrawColorChange: (color: string) => void
-  onDrawWidthChange: (width: number) => void
+  onDrawColorChange: (_color: string) => void
+  onDrawWidthChange: (_width: number) => void
   orgslug: string
 }
 

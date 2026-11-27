@@ -10,7 +10,7 @@ import { getOrgLogoMediaDirectory } from '@services/media/media'
 async function currentOrg() {
   try {
     const orgslug = await getOrgSlug()
-    return orgslug ? await getOrganizationContextInfo(orgslug, { revalidate: 86400, tags: ['organizations'] }) : null
+    return orgslug ? await getOrganizationContextInfo(orgslug, { revalidate: 60, tags: ['organizations'] }) : null
   } catch {
     return null
   }
