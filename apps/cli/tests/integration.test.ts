@@ -454,10 +454,11 @@ describe('CLI integration — live install (command coverage)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('CLI integration — upgrade (old → new image)', () => {
-  // 1.0.1 is the oldest stable GHCR tag carrying alembic migrations; upgrading
-  // to latest applies the full delta of migrations.
+  // 1.0.1 is the oldest stable GHCR tag carrying alembic migrations.
+  // FORK (kuploy-learnhouse#43): the target is pinned. Upstream's `latest`
+  // leaves the upgraded org unreadable, and it can change under us at any time.
   const OLD_VERSION = '1.0.1'
-  const NEW_VERSION = 'latest'
+  const NEW_VERSION = '1.4.5'
   const GHCR = 'ghcr.io/learnhouse/app'
 
   let home: string
@@ -527,7 +528,7 @@ describe('CLI integration — upgrade (old → new image)', () => {
 
   describe('upgrade to the new image', () => {
     it('update --migrate exits 0', () => {
-      const r = cli('update --no-backup --migrate', 600_000)
+      const r = cli(`update --to ${NEW_VERSION} --no-backup --migrate`, 600_000)
       if (r.exitCode !== 0) console.error('update:', r.stdout, r.stderr)
       expect(r.exitCode).toBe(0)
     }, 600_000)
@@ -612,8 +613,8 @@ describe('CLI integration — upgrade (old → new image)', () => {
   describe('default update path (backup taken, already up to date)', () => {
     // Every other update test passes --no-backup; this exercises the DEFAULT
     // path that takes a pre-upgrade DB dump (db-pre-upgrade-*.sql.gz — distinct
-    // from the `backup` command's .tar.gz archives), while the install is
-    // already on latest (a no-op re-pull that must still succeed and stay up).
+    // from the `backup` command's .tar.gz archives). A plain `update` goes to
+    // latest, which must still succeed and stay up.
     const preUpgrade = (dir: string) =>
       (fs.existsSync(dir) ? fs.readdirSync(dir) : []).filter((f) => /^db-pre-upgrade-.*\.sql\.gz$/.test(f))
 
@@ -621,12 +622,12 @@ describe('CLI integration — upgrade (old → new image)', () => {
       const backupsDir = path.join(installDir, 'backups')
       const before = preUpgrade(backupsDir).length
 
-      const r = cli('update --no-migrate', 600_000) // default backup ON; already at head
+      const r = cli('update --no-migrate', 600_000) // default backup ON
       if (r.exitCode !== 0) console.error('update:', r.stdout, r.stderr)
       expect(r.exitCode).toBe(0)
 
       expect(preUpgrade(backupsDir).length).toBeGreaterThan(before)
-      expect(getContainerImage(appContainer())).toContain(NEW_VERSION)
+      expect(getContainerImage(appContainer())).toContain(':latest')
       expect(await waitForUrl(`http://localhost:${INTEG_PORT}/api/v1/health`, 120_000)).toBe(true)
     }, 600_000)
   })
