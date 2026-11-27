@@ -157,6 +157,7 @@ async def signWithKuploy(
     org_id: Optional[int] = None,
     current_user=None,
     db_session: AsyncSession = None,  # type: ignore[assignment]
+    requested_org_id: int | None = None,
 ):
     """
     Sign in, or sign up, the person this id_token belongs to.
@@ -218,7 +219,7 @@ async def signWithKuploy(
                 is_oauth=True,
                 signup_provider=SIGNUP_PROVIDER,
             )
-        return await create_user_without_org(
+        created = await create_user_without_org(
             request,
             db_session,
             current_user,
@@ -226,6 +227,10 @@ async def signWithKuploy(
             is_oauth=True,
             signup_provider=SIGNUP_PROVIDER,
         )
+        # New accounts only: someone an admin removed must not be put back by
+        # signing in again.
+        await join_open_org(created.id, requested_org_id, db_session)
+        return created
 
     needs_update = False
     if not user.email_verified:
@@ -284,13 +289,13 @@ async def join_open_org(
     user_id: int, requested_org_id: int | None, db_session: AsyncSession
 ) -> None:
     """
-    Make the person who just signed in a member, if the org is open to anyone.
+    Make a newly created account a member, if the org is open to anyone.
 
     Without this they land as a guest and are asked to join a second time.
     A single-tenancy instance has one org, so it is chosen here: the org id
     the browser sends depends on a cookie that can fail to arrive. Invite-only
-    orgs are left alone. This never raises, because the sign-in has already
-    succeeded and a failed join only leaves the "join" button in place.
+    orgs are left alone. This never raises, because the account already
+    exists and a failed join only leaves the "join" button in place.
     """
     try:
         org_id = requested_org_id
@@ -326,17 +331,6 @@ async def join_open_org(
         if config.get(section, {}).get("members", {}).get("signup_mode", "open") != "open":
             return
 
-        membership = (
-            await db_session.execute(
-                select(UserOrganization).where(
-                    (UserOrganization.user_id == user_id)
-                    & (UserOrganization.org_id == org_id)
-                )
-            )
-        ).scalars().first()
-        if membership:
-            return
-
         await check_limits_with_usage("members", org_id, db_session)
         db_session.add(
             UserOrganization(
@@ -349,10 +343,6 @@ async def join_open_org(
         )
         await db_session.commit()
         await increase_feature_usage("members", org_id, db_session)
-
-        from src.routers.users import _invalidate_session_cache
-
-        _invalidate_session_cache(user_id)
     except Exception:
         logger.warning("Could not add user %s to the organization", user_id, exc_info=True)
         await db_session.rollback()

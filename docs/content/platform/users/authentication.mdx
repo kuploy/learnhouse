@@ -7,7 +7,8 @@ LearnHouse supports multiple authentication methods to fit different deployment 
 ## Login Methods
 
 - **Email and password** — the default authentication method for every LearnHouse instance.
-- **Google OAuth** — the only third-party login provider currently supported outside of Enterprise SSO.
+- **Google OAuth** — sign in with a Google account.
+- **Kuploy account** — when your instance is run from a Kuploy site, people can sign in with their account there.
 
 For enterprise deployments, SAML (via WorkOS) and Custom OIDC are available — see [Enterprise SSO](/enterprise/sso).
 
@@ -24,7 +25,7 @@ Organizations can control how new users join the platform:
 
 The signup mechanism is configured per-organization in the [organization settings](/platform/organizations/settings).
 
-If your instance offers a sign-in with the account of the Kuploy site that runs it, people who use it join an open-signup organization automatically. They are not asked to join a second time. Invite-only organizations still require an invitation.
+If your instance offers a sign-in with the account of the Kuploy site that runs it, a new person who arrives that way joins an open-signup organization automatically, when the organization has room. On an instance with several organizations, it is the one they signed in from. Someone who already had an account is not added again, so a member you removed stays out unless they join by themselves. Invite-only organizations still require an invitation.
 
 <Callout>
 Choose invite-only signup for private or internal deployments where you want to control exactly who has access.

@@ -116,13 +116,16 @@ class TestKuployJoinsOpenOrg:
                 db_session=db,
             )
 
-    async def _configure(self, db, org, signup_mode, tenancy, monkeypatch):
+    async def _configure(
+        self, db, org, signup_mode, tenancy, monkeypatch, version="2.0"
+    ):
+        section = "admin_toggles" if version.startswith("2") else "features"
         db.add(
             OrganizationConfig(
                 org_id=org.id,
                 config={
-                    "config_version": "2.0",
-                    "admin_toggles": {"members": {"signup_mode": signup_mode}},
+                    "config_version": version,
+                    section: {"members": {"signup_mode": signup_mode}},
                 },
                 creation_date="now",
                 update_date="now",
@@ -147,26 +150,39 @@ class TestKuployJoinsOpenOrg:
             "src.services.auth.kuploy.increase_feature_usage"
         ):
             await self._sign_in(db, mock_request, monkeypatch)
-            # Signing in again must not add a second membership.
+            assert await self._memberships(db) == [(org.id, 4)]
+
+            # An admin removes them: signing in again must not put them back.
+            await db.delete(
+                (await db.execute(select(UserOrganization))).scalars().one()
+            )
+            await db.commit()
             await self._sign_in(db, mock_request, monkeypatch)
-        assert await self._memberships(db) == [(org.id, 4)]
+        assert await self._memberships(db) == []
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("version", ["1.0", "2.0"])
     async def test_invite_only_org_is_left_alone(
-        self, db, org, mock_request, monkeypatch
+        self, db, org, mock_request, monkeypatch, version
     ):
-        await self._configure(db, org, "inviteOnly", "single", monkeypatch)
+        await self._configure(db, org, "inviteOnly", "single", monkeypatch, version)
         await self._sign_in(db, mock_request, monkeypatch)
         assert await self._memberships(db) == []
 
     @pytest.mark.asyncio
-    async def test_multi_tenancy_joins_only_the_org_asked_for(
+    async def test_multi_tenancy_joins_nobody_without_an_org_id(
+        self, db, org, mock_request, monkeypatch
+    ):
+        await self._configure(db, org, "open", "multi", monkeypatch)
+        await self._sign_in(db, mock_request, monkeypatch)
+        assert await self._memberships(db) == []
+
+    @pytest.mark.asyncio
+    async def test_multi_tenancy_joins_the_org_asked_for(
         self, db, org, mock_request, monkeypatch
     ):
         await self._configure(db, org, "open", "multi", monkeypatch)
         # No pending invite, so the router clears org_id for account creation.
-        await self._sign_in(db, mock_request, monkeypatch)
-        assert await self._memberships(db) == []
         with patch("src.services.auth.kuploy.check_limits_with_usage"), patch(
             "src.services.auth.kuploy.increase_feature_usage"
         ):

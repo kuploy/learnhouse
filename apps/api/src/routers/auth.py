@@ -27,11 +27,7 @@ from src.security.auth import (
 from src.services.users.users import security_get_user
 from src.services.auth.utils import signWithGoogle, get_google_user_info
 # FORK (kuploy-cloud#1443): this instance as its own sign-in provider.
-from src.services.auth.kuploy import (
-    join_open_org,
-    kuploy_verified_email,
-    signWithKuploy,
-)
+from src.services.auth.kuploy import signWithKuploy, kuploy_verified_email
 from src.services.dev.dev import isDevModeEnabled
 from src.services.security.rate_limiting import (
     check_login_rate_limit,
@@ -590,9 +586,13 @@ async def third_party_login(
     # claim owns the account. See src/services/auth/kuploy.py.
     elif body.provider == "kuploy":
         user = await signWithKuploy(
-            request, body.id_token or "", org_id, current_user, db_session
+            request,
+            body.id_token or "",
+            org_id,
+            current_user,
+            db_session,
+            requested_org_id=requested_org_id,
         )
-        await join_open_org(user.id, requested_org_id, db_session)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
