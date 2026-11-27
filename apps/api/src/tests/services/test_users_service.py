@@ -452,6 +452,44 @@ class TestCreateAndUpdateUser:
         assert email_exc.value.status_code == 400
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("mode", ["oss", "ee"])
+    async def test_password_signup_into_org_sends_welcome(
+        self, mock_request, db, admin_user, org, mode
+    ):
+        """kuploy/learnhouse#45: outside SaaS a password sign-up got no email."""
+        with patch(
+            "src.services.users.users.validate_password_complexity",
+            return_value=Mock(is_valid=True),
+        ), patch("src.services.users.users.check_limits_with_usage"), patch(
+            "src.services.users.users.increase_feature_usage"
+        ), patch(
+            "src.services.users.users.track", new_callable=AsyncMock
+        ), patch(
+            "src.services.users.users.dispatch_webhooks", new_callable=AsyncMock
+        ), patch(
+            "src.services.users.email_verification.send_verification_email",
+            new_callable=AsyncMock,
+        ) as mock_verification_email, patch(
+            "src.services.users.users.send_account_creation_email"
+        ) as mock_account_email, patch(
+            "src.services.users.users.get_deployment_mode", return_value=mode
+        ), patch(
+            "src.services.users.users.authorization_verify_based_on_roles_and_authorship",
+            new_callable=AsyncMock,
+        ):
+            created = await create_user(
+                mock_request,
+                db,
+                admin_user,
+                _user_create("pw-user", "pw-user@test.com"),
+                org.id,
+            )
+
+        mock_account_email.assert_called_once()
+        assert mock_account_email.call_args.kwargs["email"] == created.email
+        mock_verification_email.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_create_user_missing_org(self, mock_request, db, admin_user):
         with patch(
             "src.services.users.users.validate_password_complexity",

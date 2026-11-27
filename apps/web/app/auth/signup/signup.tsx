@@ -87,6 +87,17 @@ const LoggedInJoinScreen = ({ inviteCode, org }: JoinScreenProps) => {
   const [showMessage, setShowMessage] = useState(false)
   const router = useRouter()
 
+  // FORK (kuploy-learnhouse#45): a member has nothing to join. An invite link is
+  // left alone, and so is the success message shown right after joining.
+  const isMember =
+    session?.data?.user?.is_superadmin ||
+    !!session?.data?.roles?.some((r: any) => r.org?.id === activeOrg?.id)
+  const redirectMember = isMember && !inviteCode && !isSubmitting && !success
+
+  useEffect(() => {
+    if (redirectMember) router.replace(getUriWithOrg(activeOrg.slug, '/'))
+  }, [redirectMember, activeOrg?.slug, router])
+
   const join = async () => {
     setIsSubmitting(true)
     setError('')

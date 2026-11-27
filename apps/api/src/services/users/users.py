@@ -186,8 +186,13 @@ async def create_user(
         },
     )
 
-    # Send verification email for non-OAuth users, account creation email for OAuth users
-    if is_oauth:
+    # FORK (kuploy-learnhouse#45): every sign-up gets an email. SaaS password
+    # users get the verification email; everyone else gets the welcome email.
+    if not is_oauth and get_deployment_mode() == 'saas':
+        # Import here to avoid circular imports
+        from src.services.users.email_verification import send_verification_email
+        await send_verification_email(request, db_session, user, org_id)
+    else:
         org_config_stmt = select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
         org_config = (await db_session.execute(org_config_stmt)).scalars().first()
         _send_welcome_email(
@@ -195,10 +200,6 @@ async def create_user(
             lang=get_org_default_language(org_config),
             brand=await get_email_brand(db_session, request, result),
         )
-    elif get_deployment_mode() == 'saas':
-        # Import here to avoid circular imports
-        from src.services.users.email_verification import send_verification_email
-        await send_verification_email(request, db_session, user, org_id)
 
     return user_read
 

@@ -156,3 +156,30 @@ class TestGetUserByUsername:
             response = await client.get("/api/v1/users/username/nonexistent")
 
         assert response.status_code == 404
+
+
+class TestSignupRateLimit:
+    """kuploy/learnhouse#45: the two open sign-up endpoints are throttled."""
+
+    @pytest.mark.parametrize("path", ["/api/v1/users/1", "/api/v1/users/"])
+    async def test_over_limit_is_refused_before_creating(self, client, path):
+        body = {
+            "username": "limited",
+            "first_name": "",
+            "last_name": "",
+            "email": "limited@test.com",
+            "password": "Password123!",
+        }
+        with patch(
+            "src.routers.users.check_signup_rate_limit", return_value=(False, 600)
+        ), patch(
+            "src.routers.users.create_user", new_callable=AsyncMock
+        ) as in_org, patch(
+            "src.routers.users.create_user_without_org", new_callable=AsyncMock
+        ) as without_org:
+            response = await client.post(path, json=body)
+
+        assert response.status_code == 429
+        assert response.headers["Retry-After"] == "600"
+        in_org.assert_not_awaited()
+        without_org.assert_not_awaited()
