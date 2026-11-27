@@ -456,9 +456,10 @@ describe('CLI integration — live install (command coverage)', () => {
 describe('CLI integration — upgrade (old → new image)', () => {
   // 1.0.1 is the oldest stable GHCR tag carrying alembic migrations.
   // FORK (kuploy-learnhouse#43): the target is pinned. Upstream's `latest`
-  // leaves the upgraded org unreadable, and it can change under us at any time.
+  // (the same image as 1.4.5) leaves the upgraded org unreadable. 1.3.4 is the
+  // last version whose source has no `is_demo` field.
   const OLD_VERSION = '1.0.1'
-  const NEW_VERSION = '1.4.5'
+  const NEW_VERSION = '1.3.4'
   const GHCR = 'ghcr.io/learnhouse/app'
 
   let home: string
