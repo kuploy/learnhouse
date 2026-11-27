@@ -280,6 +280,24 @@ class TestEmailUtilsService:
             "https://blocked.test",
         )
 
+    def test_send_email_without_a_provider_sends_nothing(self):
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(email_provider="none"),
+        ), patch("src.services.email.utils.resend.Emails.send") as mock_send:
+            assert send_email("to@test.com", "Hello", "<p>Body</p>") is None
+        mock_send.assert_not_called()
+
+    def test_send_email_resend_without_a_key_says_not_configured(self):
+        with patch(
+            "src.services.email.utils.get_learnhouse_config",
+            return_value=_config(email_provider="resend", resend_api_key=None),
+        ), patch("src.services.email.utils.resend.Emails.send") as mock_send:
+            with pytest.raises(HTTPException) as exc_info:
+                send_email("to@test.com", "Hello", "<p>Body</p>")
+        assert exc_info.value.detail == "Email service not configured"
+        mock_send.assert_not_called()
+
     def test_send_email_routes_to_resend_and_smtp(self):
         with patch(
             "src.services.email.utils.get_learnhouse_config",

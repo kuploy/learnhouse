@@ -49,6 +49,16 @@ from src.services.analytics import events as analytics_events
 from src.services.webhooks.dispatch import dispatch_webhooks
 
 
+def _send_welcome_email(user: UserRead, lang: str = "en") -> None:
+    """The account already exists by now, so a failed send must not fail the sign-up."""
+    try:
+        send_account_creation_email(user=user, email=user.email, lang=lang)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "Failed to send welcome email to %s", user.user_uuid, exc_info=True
+        )
+
+
 async def create_user(
     request: Request,
     db_session: AsyncSession,
@@ -179,11 +189,7 @@ async def create_user(
     if is_oauth:
         org_config_stmt = select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
         org_config = (await db_session.execute(org_config_stmt)).scalars().first()
-        send_account_creation_email(
-            user=user_read,
-            email=user_read.email,
-            lang=get_org_default_language(org_config),
-        )
+        _send_welcome_email(user_read, lang=get_org_default_language(org_config))
     elif get_deployment_mode() == 'saas':
         # Import here to avoid circular imports
         from src.services.users.email_verification import send_verification_email
@@ -339,10 +345,7 @@ async def create_user_without_org(
     # OAuth users get welcome email (already verified)
     # Non-OAuth SaaS users get verification email (no org needed)
     if is_oauth or get_deployment_mode() != 'saas':
-        send_account_creation_email(
-            user=user_read,
-            email=user_read.email,
-        )
+        _send_welcome_email(user_read)
     else:
         from src.services.users.email_verification import send_verification_email
         await send_verification_email(request, db_session, user, org_id=None)
