@@ -491,6 +491,9 @@ async def third_party_login(
     import redis as _redis
     _logger = logging.getLogger(__name__)
 
+    # FORK (kuploy-learnhouse#36): kept because the invite gate may clear org_id.
+    requested_org_id = org_id
+
     # Validate org_id before passing it downstream: verify the org exists and
     # that a pending invite exists for this email in that org.  If the org does
     # not exist we reject the request. If the org exists but no invite is found
@@ -583,7 +586,12 @@ async def third_party_login(
     # claim owns the account. See src/services/auth/kuploy.py.
     elif body.provider == "kuploy":
         user = await signWithKuploy(
-            request, body.id_token or "", org_id, current_user, db_session
+            request,
+            body.id_token or "",
+            org_id,
+            current_user,
+            db_session,
+            requested_org_id=requested_org_id,
         )
     else:
         raise HTTPException(
