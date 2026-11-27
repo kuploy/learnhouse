@@ -54,7 +54,15 @@ from jwt.exceptions import PyJWTError
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from config.config import get_learnhouse_config
+from src.db.organization_config import OrganizationConfig
+from src.db.organizations import Organization
+from src.db.user_organizations import UserOrganization
 from src.db.users import User, UserCreate, UserRead
+from src.security.features_utils.usage import (
+    check_limits_with_usage,
+    increase_feature_usage,
+)
 from src.services.security.account_lockout import update_login_info
 from src.services.security.rate_limiting import get_client_ip
 from src.services.users.users import create_user, create_user_without_org
@@ -270,3 +278,81 @@ async def signWithKuploy(
     await update_login_info(user, client_ip, db_session)
 
     return UserRead.model_validate(user)
+
+
+async def join_open_org(
+    user_id: int, requested_org_id: int | None, db_session: AsyncSession
+) -> None:
+    """
+    Make the person who just signed in a member, if the org is open to anyone.
+
+    Without this they land as a guest and are asked to join a second time.
+    A single-tenancy instance has one org, so it is chosen here: the org id
+    the browser sends depends on a cookie that can fail to arrive. Invite-only
+    orgs are left alone. This never raises, because the sign-in has already
+    succeeded and a failed join only leaves the "join" button in place.
+    """
+    try:
+        org_id = requested_org_id
+        if get_learnhouse_config().hosting_config.tenancy == "single":
+            # Same choice as /instance/info: slug "default", else the oldest.
+            default_org = (
+                await db_session.execute(
+                    select(Organization).where(Organization.slug == "default")
+                )
+            ).scalars().first() or (
+                await db_session.execute(
+                    select(Organization).order_by(Organization.id).limit(1)
+                )
+            ).scalars().first()
+            org_id = default_org.id if default_org else None
+        if org_id is None:
+            return
+
+        org_config = (
+            await db_session.execute(
+                select(OrganizationConfig).where(OrganizationConfig.org_id == org_id)
+            )
+        ).scalars().first()
+        if org_config is None:
+            return
+        # Read as get_org_join_mechanism does; that one needs an RBAC context.
+        config = org_config.config or {}
+        section = (
+            "admin_toggles"
+            if config.get("config_version", "1.0").startswith("2")
+            else "features"
+        )
+        if config.get(section, {}).get("members", {}).get("signup_mode", "open") != "open":
+            return
+
+        membership = (
+            await db_session.execute(
+                select(UserOrganization).where(
+                    (UserOrganization.user_id == user_id)
+                    & (UserOrganization.org_id == org_id)
+                )
+            )
+        ).scalars().first()
+        if membership:
+            return
+
+        await check_limits_with_usage("members", org_id, db_session)
+        db_session.add(
+            UserOrganization(
+                user_id=user_id,
+                org_id=org_id,
+                role_id=4,
+                creation_date=str(datetime.now()),
+                update_date=str(datetime.now()),
+            )
+        )
+        await db_session.commit()
+        await increase_feature_usage("members", org_id, db_session)
+
+        from src.routers.users import _invalidate_session_cache
+
+        _invalidate_session_cache(user_id)
+    except Exception:
+        logger.warning("Could not add user %s to the organization", user_id, exc_info=True)
+        await db_session.rollback()
