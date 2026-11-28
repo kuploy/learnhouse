@@ -174,6 +174,24 @@ def check_signup_rate_limit(request: Request) -> Tuple[bool, int]:
     return is_allowed, retry_after
 
 
+def check_signup_email_rate_limit(email: str) -> tuple[bool, int]:
+    """
+    FORK (kuploy-learnhouse#45): 10 sign-up attempts per hour per email address.
+
+    Returns:
+        Tuple of (is_allowed, retry_after_seconds)
+    """
+    key = f"signup_email:{email.strip().lower()}"
+
+    is_allowed, _, retry_after = check_rate_limit(
+        key=key,
+        max_attempts=10,
+        window_seconds=60 * 60  # 1 hour
+    )
+
+    return is_allowed, retry_after
+
+
 def check_verification_resend_rate_limit(email: str) -> Tuple[bool, int]:
     """
     Check verification email resend rate limit: 5 attempts per 5 minutes per email.

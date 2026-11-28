@@ -84,7 +84,8 @@ function OpenSignUpComponent() {
         res.status == 401 ||
         res.status == 400 ||
         res.status == 404 ||
-        res.status == 409
+        res.status == 409 ||
+        res.status == 429
       ) {
         track(AnalyticsEvent.SignupFailed, { status_code: res.status })
         setError(message.detail)
