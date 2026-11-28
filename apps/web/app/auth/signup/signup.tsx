@@ -71,6 +71,23 @@ function SignUpClient(props: SignUpClientProps) {
   )
 }
 
+// FORK (kuploy-learnhouse#45): a member has nothing to join. An invite link is
+// left alone. The link is read from the URL, so the redirect cannot run before
+// the page has noticed it.
+const useRedirectMember = (activeOrg: any, hold = false) => {
+  const session = useLHSession() as any
+  const router = useRouter()
+  const hasInvite = !!useSearchParams().get('inviteCode')
+  const isMember =
+    session?.data?.user?.is_superadmin ||
+    !!session?.data?.roles?.some((r: any) => r.org?.id === activeOrg?.id)
+  const redirect = isMember && !hasInvite && !hold
+
+  useEffect(() => {
+    if (redirect) router.replace(getUriWithOrg(activeOrg.slug, '/'))
+  }, [redirect, activeOrg?.slug, router])
+}
+
 interface JoinScreenProps {
   inviteCode: string
   org: any
@@ -86,6 +103,8 @@ const LoggedInJoinScreen = ({ inviteCode, org }: JoinScreenProps) => {
   const [success, setSuccess] = useState('')
   const [showMessage, setShowMessage] = useState(false)
   const router = useRouter()
+
+  useRedirectMember(activeOrg, isSubmitting || !!success)
 
   const join = async () => {
     setIsSubmitting(true)
@@ -214,6 +233,8 @@ const NoTokenScreen = ({ org }: NoTokenScreenProps) => {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [showMessage, setShowMessage] = useState(false)
+
+  useRedirectMember(activeOrg)
 
   const validateCode = async (e: React.FormEvent) => {
     e.preventDefault()
