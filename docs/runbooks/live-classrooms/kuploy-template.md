@@ -79,7 +79,8 @@ that can write the org's packages:
 docker login ghcr.io -u <github-user> --password-stdin < <token-file>
 ```
 
-From a clean checkout of the commit you want to publish:
+Push `:main` only when the repository owner asks, and only from a clean
+checkout of `main`:
 
 ```bash
 TAG=main-$(git rev-parse --short=7 HEAD)
@@ -90,6 +91,9 @@ docker buildx build --platform linux/amd64 --build-arg LEARNHOUSE_PUBLIC=true \
 docker buildx build --platform linux/amd64 -f docs/Dockerfile \
   -t ghcr.io/kuploy/learnhouse-docs:main -t ghcr.io/kuploy/learnhouse-docs:$TAG --push ./docs
 ```
+
+When Actions is back, the workflows push on a push to `main` that touches
+`apps/**`, `Dockerfile` or `docker/**` (app), or `docs/**` (docs).
 
 ### Test a branch build (dev / troubleshooting)
 
@@ -120,17 +124,10 @@ its image, point the deployment at it, then roll back to `:main`.
    `:main`) won't re-pull if the string is unchanged — force it with
    `kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>`.
 
-3. **Roll back to production** once done — re-pin `:main` (and restart, since
-   the tag string is unchanged):
-
-   ```bash
-   kubectl -n project-<org> set image deploy/learnhouse-app-<hash> \
-     '*=ghcr.io/kuploy/learnhouse-app:main'
-   kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>
-   ```
+3. **Roll back** once done: use the dashboard **Redeploy**. It resets the
+   image to whatever the stack spec pins.
 
 > This `set image` is a **manual override** outside the kuploy stack spec. A
-> dashboard **Redeploy** (or any stack reconcile) resets the image to whatever
-> the spec pins — so it's for testing only, and rolling back to `:main` keeps
-> the override and the spec in agreement. The same steps apply to
-> `learnhouse-docs` (swap the deployment name and `ghcr.io/kuploy/learnhouse-docs`).
+> dashboard **Redeploy** (or any stack reconcile) undoes it, so it's for testing
+> only. The same steps apply to `learnhouse-docs` (swap the deployment name and
+> `ghcr.io/kuploy/learnhouse-docs`).
