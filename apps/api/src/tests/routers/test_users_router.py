@@ -171,8 +171,8 @@ class TestSignupRateLimit:
             "password": "Password123!",
         }
         with patch(
-            "src.routers.users.check_signup_rate_limit", return_value=(False, 600)
-        ), patch(
+            "src.routers.users.check_signup_email_rate_limit", return_value=(False, 600)
+        ) as limiter, patch(
             "src.routers.users.create_user", new_callable=AsyncMock
         ) as in_org, patch(
             "src.routers.users.create_user_without_org", new_callable=AsyncMock
@@ -181,5 +181,6 @@ class TestSignupRateLimit:
 
         assert response.status_code == 429
         assert response.headers["Retry-After"] == "600"
+        limiter.assert_called_once_with("limited@test.com")
         in_org.assert_not_awaited()
         without_org.assert_not_awaited()

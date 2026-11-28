@@ -13,6 +13,7 @@ from src.services.security.rate_limiting import (
     check_password_reset_rate_limit,
     check_rate_limit,
     check_refresh_rate_limit,
+    check_signup_email_rate_limit,
     check_signup_rate_limit,
     check_verification_resend_rate_limit,
     get_client_ip,
@@ -297,6 +298,7 @@ def test_ip_based_wrappers_delegate_with_expected_limits(
 @pytest.mark.parametrize(
     "func,input_value,expected_key",
     [
+        (check_signup_email_rate_limit, " User@Example.com ", "signup_email:user@example.com"),
         (check_verification_resend_rate_limit, "User@Example.com", "verify_resend:user@example.com"),
         (check_password_reset_rate_limit, "User@Example.com", "password_reset:user@example.com"),
         (check_email_verification_rate_limit, "User@Example.com", "email_verify:user@example.com"),

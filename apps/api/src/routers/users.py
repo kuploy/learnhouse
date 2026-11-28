@@ -14,7 +14,7 @@ from src.services.users.password_reset import (
 from src.services.security.rate_limiting import (
     check_password_reset_rate_limit,
     check_invite_acceptance_rate_limit,
-    check_signup_rate_limit,
+    check_signup_email_rate_limit,
 )
 from src.services.orgs.orgs import get_org_join_mechanism
 from src.security.auth import get_current_user, get_authenticated_user
@@ -163,9 +163,9 @@ async def api_get_authorization_status(
     )
 
 
-def _limit_signups(request: Request) -> None:
-    """FORK (kuploy-learnhouse#45): throttle the sign-up endpoints per IP."""
-    is_allowed, retry_after = check_signup_rate_limit(request)
+def _limit_signups(email: str) -> None:
+    """FORK (kuploy-learnhouse#45): throttle sign-up attempts per email address."""
+    is_allowed, retry_after = check_signup_email_rate_limit(email)
     if not is_allowed:
         minutes = max(1, retry_after // 60)
         raise HTTPException(
@@ -197,7 +197,7 @@ async def api_create_user_with_orgid(
     """
     Create User with Org ID
     """
-    _limit_signups(request)
+    _limit_signups(user_object.email)
 
     # TODO(fix) : This is temporary, logic should be moved to service
     if (
@@ -286,7 +286,7 @@ async def api_create_user_without_org(
     """
     Create User
     """
-    _limit_signups(request)
+    _limit_signups(user_object.email)
     return await create_user_without_org(request, db_session, current_user, user_object)
 
 

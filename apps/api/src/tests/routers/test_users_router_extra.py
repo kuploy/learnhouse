@@ -212,7 +212,7 @@ class TestAuthorizationAndCreationEndpoints:
     @pytest.fixture(autouse=True)
     def _under_signup_limit(self):
         # FORK (kuploy-learnhouse#45): no Redis here; the limit has its own test.
-        with patch("src.routers.users.check_signup_rate_limit", return_value=(True, 0)):
+        with patch("src.routers.users.check_signup_email_rate_limit", return_value=(True, 0)):
             yield
 
     @pytest.fixture(autouse=True)
