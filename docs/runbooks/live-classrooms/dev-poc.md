@@ -8,7 +8,7 @@ the TURN relay. For the real relay, use the
 
 > The feature code lives in the fork. Note that `npx learnhouse dev` and the
 > upstream `ghcr.io/learnhouse/app` image **do not** contain it — you must run
-> the fork's source or the fork image `ceduth/learnhouse-app`.
+> the fork's source or the fork image `ghcr.io/kuploy/learnhouse-app`.
 
 ## 0. A throwaway LiveKit (both paths)
 
@@ -74,7 +74,7 @@ services:
   redis:
     image: redis
   learnhouse:
-    image: ceduth/learnhouse-app:main   # the fork image (live-classrooms code)
+    image: ghcr.io/kuploy/learnhouse-app:main   # the fork image (live-classrooms code)
     depends_on: [postgres, redis, livekit]
     ports: ["8080:80"]                  # nginx fronts web/api/collab on :80
     environment:

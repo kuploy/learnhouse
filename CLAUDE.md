@@ -39,7 +39,7 @@ Local checks are the green, as the account rules describe: run what the jobs cov
 change would run, then post the commands, the commit they ran on and the results as a PR
 comment. That comment is the green.
 
-**Nothing is published either.** A push to `main` used to build the app and docs images
-and push them to Docker Hub, and it no longer does, so a published tag can sit behind
+**Nothing is published either.** A push to `main` used to build and publish the app and
+docs images, and it no longer does, so a published tag can sit behind
 `main` indefinitely. A local check cannot stand in for a publish; ask the owner how to
 ship.
