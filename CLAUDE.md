@@ -29,15 +29,17 @@ still post and still have to go green — a `two-reviews` status appears on ever
 
 The workflow files are untouched and GitHub still reports Actions as enabled, both on the
 settings page and from `GET /actions/permissions`, so neither tells you anything. What
-tells you is that a pushed commit ends up with zero runs against it. A dispatch is refused
-outright (`HTTP 422: Actions has been disabled for this repository.`), but there is no need
-to try one, and do not: if Actions ever comes back, dispatching one of the publish
-workflows pushes an image.
+tells you is a commit that should have triggered a build — a PR head, or a push to `dev`
+or `main` — ending up with zero runs against it. A dispatch is refused outright
+(`HTTP 422: Actions has been disabled for this repository.`), but there is no need to try
+one, and do not: if Actions ever comes back, dispatching one of the publish workflows
+pushes an image.
 
 Local checks are the green, as the account rules describe: run what the jobs covering your
 change would run, then post the commands, the commit they ran on and the results as a PR
 comment. That comment is the green.
 
-**Nothing is published either.** A push to `main` used to build the app image and push it
-to Docker Hub. It no longer does, so the published tag can sit behind `main` indefinitely,
-and a local check cannot stand in for a publish. Whoever ships builds and pushes by hand.
+**Nothing is published either.** A push to `main` used to build the app and docs images
+and push them to Docker Hub, and it no longer does, so a published tag can sit behind
+`main` indefinitely. A local check cannot stand in for a publish; ask the owner how to
+ship.
