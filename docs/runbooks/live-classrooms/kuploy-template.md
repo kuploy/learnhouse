@@ -24,7 +24,8 @@ Template:
    mode). Deploy it standalone rather than into a namespace that already has a
    `livekit-server` — the template brings its own, and two would collide.
 2. Provisioning creates and wires, with no manual edits:
-   - `learnhouse-app` → image `ceduth/learnhouse-app:main`, gets a domain.
+   - `learnhouse-app` → the fork's app image, gets a domain. The template may
+     still pin the old Docker Hub copy; see *Where the images come from*.
    - `livekit-server` → generates `LIVEKIT_KEYS`, gets a domain.
    - `learnhouse-postgres` (pgvector), `learnhouse-redis`.
    - Connections into `learnhouse-app` (server-side, never the browser):
@@ -57,51 +58,55 @@ TURN-over-TLS (kuploy-k8s#35). On a UDP-blocked network the client can't connect
 
 ## Where the images come from (and how to build them)
 
-Two Docker Hub images back the template, both built from this fork (amd64) and
-both already published — you don't need to build anything to deploy:
+Two images on GitHub's registry back the template, both built from this fork
+(amd64) and both public:
 
-| Image | Built by | Triggers on |
-|---|---|---|
-| `ceduth/learnhouse-app` | `publish-live-classrooms-image.yaml` | push to `main` touching `apps/**` or `Dockerfile` |
-| `ceduth/learnhouse-docs` | `publish-docs-image.yaml` | push to `main` touching `docs/**` (build-verifies on any PR touching `docs/**`) |
+| Image | Described by |
+|---|---|
+| `ghcr.io/kuploy/learnhouse-app` | `publish-live-classrooms-image.yaml` |
+| `ghcr.io/kuploy/learnhouse-docs` | `publish-docs-image.yaml` |
 
-Both push `:main` and `:main-<sha>` tags. Renovate keeps their deps and base
-images current (it auto-discovers `apps/`/`docs/` `package.json` + the
-Dockerfiles); a merged dep bump rebuilds the image through these workflows — no
-separate renovate config builds images.
+The earlier Docker Hub tags stay published, so a deploy pinned to one of those
+digests keeps pulling until someone moves it on purpose. They get no new builds.
 
-### Force a build manually (`gh`)
+### Build and push (by hand for now)
 
-Both workflows have `workflow_dispatch`, so you can build + push on demand
-without a code change — handy to refresh `:main` or recover from a skipped run.
-Run from a clone of `kuploy/learnhouse` (the CLI infers the repo):
+GitHub Actions is off on this repository, so neither workflow runs and a merge
+to `main` publishes nothing. Until it is back on, push by hand. You need a token
+that can write the org's packages:
 
 ```bash
-# build + push the app image from main
-gh workflow run "Publish learnhouse-app image (Docker Hub)" --ref main
-# build + push the docs image from main
-gh workflow run "Publish learnhouse-docs image (Docker Hub)" --ref main
-
-# watch the run you just kicked off
-gh run list  --workflow "Publish learnhouse-docs image (Docker Hub)" --limit 3
-gh run watch <run-id>
+docker login ghcr.io -u <github-user> --password-stdin < <token-file>
 ```
 
-A dispatched run logs in to Docker Hub and pushes (only `pull_request` events
-skip the push), so a manual dispatch from `main` publishes the tag.
+Push `:main` only when the repository owner asks, and only from a clean
+checkout of `main`:
+
+```bash
+TAG=main-$(git rev-parse --short=7 HEAD)
+# app image
+docker buildx build --platform linux/amd64 --build-arg LEARNHOUSE_PUBLIC=true \
+  -t ghcr.io/kuploy/learnhouse-app:main -t ghcr.io/kuploy/learnhouse-app:$TAG --push .
+# docs image
+docker buildx build --platform linux/amd64 -f docs/Dockerfile \
+  -t ghcr.io/kuploy/learnhouse-docs:main -t ghcr.io/kuploy/learnhouse-docs:$TAG --push ./docs
+```
+
+When Actions is back, the workflows push on a push to `main` that touches
+`apps/**`, `Dockerfile` or `docker/**` (app), or `docs/**` (docs).
 
 ### Test a branch build (dev / troubleshooting)
 
 To try an unmerged branch on a live deployment without merging to `main`, build
 its image, point the deployment at it, then roll back to `:main`.
 
-1. **Build + push the branch.** `workflow_dispatch` on the branch publishes
-   `:<branch>` and `:<branch>-<sha>` (slashes in the branch name are flattened,
-   e.g. `fix/foo` → `fix-foo`):
+1. **Build + push the branch.** From a clean checkout of the branch, tag it
+   `<branch>-<sha>` (replace any `/` in the branch name with `-`, e.g.
+   `fix/foo` → `fix-foo`). Do not tag it `:main`:
 
    ```bash
-   gh workflow run "Publish learnhouse-app image (Docker Hub)" --ref <branch>
-   gh run watch <run-id>
+   docker buildx build --platform linux/amd64 --build-arg LEARNHOUSE_PUBLIC=true \
+     -t ghcr.io/kuploy/learnhouse-app:<branch>-<sha> --push .
    ```
 
 2. **Point the deployment at the tag.** kuploy names the deployment
@@ -111,7 +116,7 @@ its image, point the deployment at it, then roll back to `:main`.
 
    ```bash
    kubectl -n project-<org> set image deploy/learnhouse-app-<hash> \
-     '*=ceduth/learnhouse-app:<branch>-<sha>'
+     '*=ghcr.io/kuploy/learnhouse-app:<branch>-<sha>'
    kubectl -n project-<org> rollout status deploy/learnhouse-app-<hash>
    ```
 
@@ -119,17 +124,10 @@ its image, point the deployment at it, then roll back to `:main`.
    `:main`) won't re-pull if the string is unchanged — force it with
    `kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>`.
 
-3. **Roll back to production** once done — re-pin `:main` (and restart, since
-   the tag string is unchanged):
-
-   ```bash
-   kubectl -n project-<org> set image deploy/learnhouse-app-<hash> \
-     '*=ceduth/learnhouse-app:main'
-   kubectl -n project-<org> rollout restart deploy/learnhouse-app-<hash>
-   ```
+3. **Roll back** once done: use the dashboard **Redeploy**. It resets the
+   image to whatever the stack spec pins.
 
 > This `set image` is a **manual override** outside the kuploy stack spec. A
-> dashboard **Redeploy** (or any stack reconcile) resets the image to whatever
-> the spec pins — so it's for testing only, and rolling back to `:main` keeps
-> the override and the spec in agreement. The same steps apply to
-> `learnhouse-docs` (swap the deployment name and `ceduth/learnhouse-docs`).
+> dashboard **Redeploy** (or any stack reconcile) undoes it, so it's for testing
+> only. The same steps apply to `learnhouse-docs` (swap the deployment name and
+> `ghcr.io/kuploy/learnhouse-docs`).

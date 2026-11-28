@@ -24,9 +24,22 @@ promotion and only the owner asks for one. Never release from `dev`.
 
 ## CI
 
-GitHub Actions runs on this repo, so let the workflows be the green.
+**No GitHub Actions job runs here, so never wait for an Actions check.** Other checks do
+still post and still have to go green — a `two-reviews` status appears on every PR.
 
-**API Lint is the known exception.** It has been failing on `dev` itself since before
-this file (`6430f9c` and earlier), so it is red for reasons a PR did not cause. While
-that is true, run what that job runs and post the commands, the commit and the results
-as a PR comment, and let that comment stand in for it. Every other job still has to pass.
+The workflow files are untouched and GitHub still reports Actions as enabled, both on the
+settings page and from `GET /actions/permissions`, so neither tells you anything. What
+tells you is a commit that should have triggered a build — a PR head, or a push to `dev`
+or `main` — ending up with zero runs against it. A dispatch is refused outright
+(`HTTP 422: Actions has been disabled for this repository.`), but there is no need to try
+one, and do not: if Actions ever comes back, dispatching one of the publish workflows
+pushes an image.
+
+Local checks are the green, as the account rules describe: run what the jobs covering your
+change would run, then post the commands, the commit they ran on and the results as a PR
+comment. That comment is the green.
+
+**Nothing is published either.** A push to `main` used to build and publish the app and
+docs images, and it no longer does, so a published tag can sit behind
+`main` indefinitely. A local check cannot stand in for a publish; ask the owner how to
+ship.
