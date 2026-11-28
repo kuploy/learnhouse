@@ -24,9 +24,12 @@ promotion and only the owner asks for one. Never release from `dev`.
 
 ## CI
 
-GitHub Actions runs on this repo, so let the workflows be the green.
+**No GitHub Actions run here, so never wait for a check.** The workflows are still in
+`.github/workflows/` and GitHub still reports Actions as enabled — the settings page and
+`GET /actions/permissions` both say so — but every run is refused. A dispatch answers
+`HTTP 422: Actions has been disabled for this repository.`, and merges to `dev` produce no
+run at all. Only trying a dispatch shows this.
 
-**API Lint is the known exception.** It has been failing on `dev` itself since before
-this file (`6430f9c` and earlier), so it is red for reasons a PR did not cause. While
-that is true, run what that job runs and post the commands, the commit and the results
-as a PR comment, and let that comment stand in for it. Every other job still has to pass.
+Local checks are the green, as the account rules describe: run what the jobs covering your
+change would run, then post the commands, the commit they ran on and the results as a PR
+comment. That comment is the green.
